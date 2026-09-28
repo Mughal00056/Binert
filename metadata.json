@@ -1,0 +1,6 @@
+{
+  "name": "ApexStore · Cyber Storefront & Power Admin",
+  "description": "Futuristic luxury tech storefront and Power Admin panel with live Firebase Realtime Database sync, interactive drops, product management, and feature switches.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
