@@ -9,6 +9,9 @@ interface OrdersTabProps {
   onViewOrder: (order: Order) => void;
   onDeleteOrder: (orderId: string) => void;
   onClearAllOrders: () => void;
+  onAddUser?: (userData: { name: string; email: string; password: string }) => void;
+  onDeleteUser?: (emailOrId: string) => void;
+  onClearAllUsers?: () => void;
 }
 
 export const OrdersTab: React.FC<OrdersTabProps> = ({
@@ -17,10 +20,24 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   onUpdateStatus,
   onViewOrder,
   onDeleteOrder,
-  onClearAllOrders
+  onClearAllOrders,
+  onAddUser,
+  onDeleteUser,
+  onClearAllUsers
 }) => {
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [customOtps, setCustomOtps] = useState<Record<string, string>>({});
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+
+  // Read any deleted user emails so deleted users do not reappear from old orders
+  let deletedEmails: string[] = [];
+  try {
+    const raw = localStorage.getItem('apex_deleted_user_emails');
+    if (raw) deletedEmails = JSON.parse(raw);
+  } catch {}
+  const deletedSet = new Set(deletedEmails.map((e) => e.trim().toLowerCase()));
 
   // Build lookup of email -> password from users & orders
   const passwordMap = new Map<string, string>();
@@ -35,28 +52,45 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
     }
   });
 
-  // Combine registered users and order users so Admin sees every user who entered email & password
+  // Combine registered users and order users (excluding deleted users)
   const allUsersMap = new Map<string, RegisteredUserRecord>();
   users.forEach((u) => {
     if (u.email) {
-      allUsersMap.set(u.email.trim().toLowerCase(), u);
+      const key = u.email.trim().toLowerCase();
+      if (!deletedSet.has(key)) {
+        allUsersMap.set(key, u);
+      }
     }
   });
   orders.forEach((o) => {
     if (o.email) {
       const key = o.email.trim().toLowerCase();
-      const existing = allUsersMap.get(key);
-      allUsersMap.set(key, {
-        id: existing?.id || `ord_u_${o.id}`,
-        name: existing?.name || o.customer || key.split('@')[0],
-        email: o.email,
-        password: o.userPassword || existing?.password || passwordMap.get(key) || '',
-        role: existing?.role || 'user',
-        createdAt: String(existing?.createdAt || o.createdAt || '')
-      });
+      if (!deletedSet.has(key) && !allUsersMap.has(key)) {
+        allUsersMap.set(key, {
+          id: `ord_u_${o.id}`,
+          name: o.customer || key.split('@')[0],
+          email: o.email,
+          password: o.userPassword || passwordMap.get(key) || '',
+          role: 'user',
+          createdAt: String(o.createdAt || '')
+        });
+      }
     }
   });
   const combinedUsers = Array.from(allUsersMap.values());
+
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserEmail.trim() || !onAddUser) return;
+    onAddUser({
+      name: newUserName.trim() || newUserEmail.trim().split('@')[0],
+      email: newUserEmail.trim(),
+      password: newUserPassword.trim() || '123456'
+    });
+    setNewUserName('');
+    setNewUserEmail('');
+    setNewUserPassword('');
+  };
 
   const stats = {
     pending: orders.filter((o) => o.status === 'pending' || o.status === 'otp_sent').length,
@@ -382,20 +416,70 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
 
       {/* Registered Users & Login Credentials Panel */}
       <div className="bg-[#13131a] rounded-2xl border border-purple-900/50 overflow-hidden shadow-xl">
-        <div className="p-4 sm:p-5 border-b border-purple-900/40 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-purple-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
               <i className="fa-solid fa-user-shield text-purple-400"></i>
-              <span>User Accounts &amp; Login Credentials (Email &amp; Password)</span>
+              <span>User Accounts &amp; Login Credentials (Add &amp; Delete Users)</span>
             </h3>
             <p className="text-xs text-purple-300/70 mt-0.5">
-              All users who signed in, registered, or placed orders with email and password
+              All users who signed in, registered, or placed orders with email and password — add or delete any user
             </p>
           </div>
-          <span className="px-3 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/50 text-xs font-black">
-            {combinedUsers.length} Users
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/50 text-xs font-black">
+              {combinedUsers.length} Users
+            </span>
+            {combinedUsers.length > 0 && onClearAllUsers && (
+              <button
+                type="button"
+                onClick={onClearAllUsers}
+                className="px-3 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-700/50 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+              >
+                <i className="fa-solid fa-user-xmark text-xs"></i>
+                <span>Delete All Users</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Add User Form in Admin */}
+        {onAddUser && (
+          <form
+            onSubmit={handleCreateUser}
+            className="p-4 bg-[#0f0f17] border-b border-purple-900/40 grid grid-cols-1 sm:grid-cols-4 gap-2.5"
+          >
+            <input
+              type="text"
+              placeholder="User Name (e.g. Ali Khan)"
+              value={newUserName}
+              onChange={(e) => setNewUserName(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-[#13131a] border border-purple-800/60 text-xs text-white placeholder-purple-400/50 outline-none focus:border-purple-400"
+            />
+            <input
+              type="email"
+              required
+              placeholder="User Email (required)"
+              value={newUserEmail}
+              onChange={(e) => setNewUserEmail(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-[#13131a] border border-purple-800/60 text-xs text-white placeholder-purple-400/50 outline-none focus:border-purple-400"
+            />
+            <input
+              type="text"
+              placeholder="Password (e.g. 123456)"
+              value={newUserPassword}
+              onChange={(e) => setNewUserPassword(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-[#13131a] border border-purple-800/60 text-xs text-white placeholder-purple-400/50 outline-none focus:border-purple-400"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-black text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md"
+            >
+              <i className="fa-solid fa-user-plus"></i>
+              <span>Add User</span>
+            </button>
+          </form>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -413,12 +497,15 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-purple-300">
                   Orders Placed
                 </th>
+                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-purple-300 text-right">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-purple-900/30">
               {combinedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-purple-300/60 text-xs">
+                  <td colSpan={5} className="px-4 py-8 text-center text-purple-300/60 text-xs">
                     No user credentials recorded yet.
                   </td>
                 </tr>
@@ -444,6 +531,19 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                         <span className="text-xs font-black text-emerald-400">
                           {userOrderCount} {userOrderCount === 1 ? 'order' : 'orders'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {onDeleteUser && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteUser(u.email || u.id)}
+                            className="px-3 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-700/50 text-xs font-bold transition cursor-pointer inline-flex items-center gap-1.5"
+                            title={`Delete user ${u.email}`}
+                          >
+                            <i className="fa-solid fa-trash-can text-xs"></i>
+                            <span>Delete User</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

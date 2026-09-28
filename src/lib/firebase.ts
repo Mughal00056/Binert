@@ -18,6 +18,11 @@ export const db = getDatabase(app);
 export const STORE_PATH = 'apexstore';
 export const LOCAL_CACHE_KEY = 'apex_rtdb_cache';
 
+const syncChannel =
+  typeof window !== 'undefined' && 'BroadcastChannel' in window
+    ? new BroadcastChannel('apex_realtime_sync')
+    : null;
+
 function normalizeArray<T>(val: unknown, fallback: T[]): T[] {
   if (val === undefined || val === null) return fallback;
   if (Array.isArray(val)) return val.filter((item) => item !== null && item !== undefined);
@@ -56,7 +61,18 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
       data.categories !== undefined
         ? normalizeArray(data.categories, [])
         : INITIAL_STORE_STATE.categories,
-    users: normalizeArray(data.users, []),
+    users:
+      data.users !== undefined
+        ? normalizeArray(data.users, [])
+        : (() => {
+            if (typeof window !== 'undefined') {
+              try {
+                const localUsers = localStorage.getItem('apex_registered_users');
+                if (localUsers) return JSON.parse(localUsers);
+              } catch {}
+            }
+            return INITIAL_STORE_STATE.users || [];
+          })(),
     gallery: normalizeArray(data.gallery, INITIAL_STORE_STATE.gallery),
     galleryEnabled: data.galleryEnabled !== false,
     bannerImage: data.bannerImage !== undefined ? data.bannerImage : INITIAL_STORE_STATE.bannerImage,
@@ -116,15 +132,35 @@ function saveLocalStoreCache(state: Partial<StoreState>) {
       localStorage.setItem('apex_orders', JSON.stringify(normalizedForStorefront));
     }
 
-    if (state.products) {
+    if (state.products !== undefined) {
       localStorage.setItem('apex_products_catalog', JSON.stringify(state.products));
+      localStorage.setItem('apex_products', JSON.stringify(state.products));
+      window.dispatchEvent(new Event('apex_products_updated'));
     }
 
-    if (state.notifications) {
+    if (state.users !== undefined) {
+      localStorage.setItem('apex_registered_users', JSON.stringify(state.users));
+      window.dispatchEvent(new Event('apex_users_updated'));
+    }
+
+    if (state.categories !== undefined) {
+      localStorage.setItem('apex_categories', JSON.stringify(state.categories));
+      window.dispatchEvent(new Event('apex_categories_updated'));
+    }
+
+    if (state.notifications !== undefined) {
       localStorage.setItem('apex_notifications', JSON.stringify(state.notifications));
+      window.dispatchEvent(new Event('apex_notifications_updated'));
     }
 
     window.dispatchEvent(new CustomEvent('apex_store_state_synced', { detail: merged }));
+    if (syncChannel) {
+      try {
+        syncChannel.postMessage(merged);
+      } catch {
+        // ignore channel errors
+      }
+    }
   } catch {
     // ignore storage errors
   }
@@ -193,8 +229,17 @@ export function subscribeToFirebaseStore(onData: (state: StoreState) => void, on
     }
   };
 
+  const handleChannelMessage = (e: MessageEvent) => {
+    if (e.data) {
+      onData(normalizeStoreState(e.data));
+    }
+  };
+
   if (typeof window !== 'undefined') {
     window.addEventListener('apex_store_state_synced', handleLocalSync);
+    if (syncChannel) {
+      syncChannel.addEventListener('message', handleChannelMessage);
+    }
   }
 
   const unsubscribe = onValue(
@@ -214,6 +259,9 @@ export function subscribeToFirebaseStore(onData: (state: StoreState) => void, on
   return () => {
     if (typeof window !== 'undefined') {
       window.removeEventListener('apex_store_state_synced', handleLocalSync);
+      if (syncChannel) {
+        syncChannel.removeEventListener('message', handleChannelMessage);
+      }
     }
     off(storeRef);
   };

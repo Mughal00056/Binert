@@ -376,14 +376,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     }
   };
 
-  // Product Actions
+  // Product Actions (Instant 0ms Storefront + Firebase Sync)
+  const syncProductsEverywhere = async (updatedProducts: Product[], toastMsg?: string, toastType: 'success' | 'info' | 'error' = 'success') => {
+    setState((prev) => ({ ...prev, products: updatedProducts }));
+    try {
+      localStorage.setItem('apex_products_catalog', JSON.stringify(updatedProducts));
+      localStorage.setItem('apex_products', JSON.stringify(updatedProducts));
+      window.dispatchEvent(new Event('apex_products_updated'));
+    } catch {}
+    if (toastMsg) showToast(toastMsg, toastType);
+
+    try {
+      setSyncStatus('saving');
+      await updateFirebasePartial({ products: updatedProducts });
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('error');
+    }
+  };
+
   const handleSaveProduct = async (productData: Partial<Product>) => {
     let updatedProducts: Product[];
+    let msg = '';
     if (editingProduct) {
       updatedProducts = state.products.map((p) =>
         p.id === editingProduct.id ? ({ ...p, ...productData } as Product) : p
       );
-      showToast(`Product "${productData.name}" updated!`);
+      msg = `Product "${productData.name}" updated & synced!`;
     } else {
       const newProd: Product = {
         id: Date.now(),
@@ -400,51 +419,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         description: productData.description || ''
       };
       updatedProducts = [newProd, ...state.products];
-      showToast(`Product "${newProd.name}" created!`);
+      msg = `Product "${newProd.name}" created & live in store!`;
     }
 
-    setState((prev) => ({ ...prev, products: updatedProducts }));
     setProductModalOpen(false);
     setEditingProduct(null);
-
-    try {
-      setSyncStatus('saving');
-      await updateFirebasePartial({ products: updatedProducts });
-      setSyncStatus('synced');
-    } catch {
-      setSyncStatus('error');
-    }
+    await syncProductsEverywhere(updatedProducts, msg, 'success');
   };
 
   const handleDeleteProduct = async (id: number) => {
     const updated = state.products.filter((p) => p.id !== id);
-    setState((prev) => ({ ...prev, products: updated }));
-    try {
-      localStorage.setItem('apex_products', JSON.stringify(updated));
-    } catch {}
-    showToast('Product deleted', 'info');
-
-    try {
-      setSyncStatus('saving');
-      await updateFirebasePartial({ products: updated });
-      setSyncStatus('synced');
-    } catch {
-      setSyncStatus('error');
-    }
+    await syncProductsEverywhere(updated, 'Product deleted from store', 'info');
   };
 
   const handleToggleProductPublic = async (id: number) => {
     const updated = state.products.map((p) => (p.id === id ? { ...p, public: !p.public } : p));
-    setState((prev) => ({ ...prev, products: updated }));
-
-    try {
-      setSyncStatus('saving');
-      await updateFirebasePartial({ products: updated });
-      setSyncStatus('synced');
-      showToast('Product visibility updated');
-    } catch {
-      setSyncStatus('error');
-    }
+    await syncProductsEverywhere(updated, 'Product visibility updated', 'success');
   };
 
   // Hero & Banner Actions
@@ -846,6 +836,115 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     } catch {
       setSyncStatus('error');
     }
+  };
+
+  // User Management Actions (Add User, Delete User, Clear All Users)
+  const syncUsersEverywhere = async (updatedUsers: NonNullable<StoreState['users']>, toastMsg?: string, toastType: 'success' | 'info' = 'success') => {
+    setState((prev) => ({ ...prev, users: updatedUsers }));
+    try {
+      localStorage.setItem('apex_registered_users', JSON.stringify(updatedUsers));
+      window.dispatchEvent(new Event('apex_users_updated'));
+    } catch {}
+    if (toastMsg) showToast(toastMsg, toastType);
+
+    try {
+      setSyncStatus('saving');
+      await updateFirebasePartial({ users: updatedUsers });
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('error');
+    }
+  };
+
+  const handleAddUser = async (userData: { name: string; email: string; password: string }) => {
+    const cleanEmail = userData.email.trim().toLowerCase();
+    const cleanName = userData.name.trim() || cleanEmail.split('@')[0];
+    const cleanPassword = userData.password.trim() || '123456';
+    if (!cleanEmail) return;
+
+    try {
+      const deletedRaw = localStorage.getItem('apex_deleted_user_emails');
+      if (deletedRaw) {
+        const deletedList: string[] = JSON.parse(deletedRaw);
+        localStorage.setItem(
+          'apex_deleted_user_emails',
+          JSON.stringify(deletedList.filter((e) => e !== cleanEmail))
+        );
+      }
+    } catch {}
+
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
+    const exists = currentUsers.some((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
+    const newUserRecord = {
+      id: `u_${Date.now()}`,
+      name: cleanName,
+      email: cleanEmail,
+      password: cleanPassword,
+      role: (cleanEmail.includes('founder') || cleanEmail.includes('admin') ? 'admin' : 'user') as 'admin' | 'user',
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString()
+    };
+
+    const updatedUsers = exists
+      ? currentUsers.map((u) =>
+          (u.email || '').trim().toLowerCase() === cleanEmail
+            ? { ...u, name: cleanName, password: cleanPassword }
+            : u
+        )
+      : [newUserRecord, ...currentUsers];
+
+    await syncUsersEverywhere(
+      updatedUsers,
+      exists ? `User "${cleanEmail}" updated!` : `User "${cleanEmail}" added!`,
+      'success'
+    );
+  };
+
+  const handleDeleteUser = async (emailOrId: string) => {
+    const targetKey = emailOrId.trim().toLowerCase();
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
+    const matchedUser = currentUsers.find(
+      (u) =>
+        String(u.id).toLowerCase() === targetKey ||
+        (u.email || '').trim().toLowerCase() === targetKey
+    );
+    const emailToBlock = (matchedUser?.email || emailOrId).trim().toLowerCase();
+
+    try {
+      const deletedRaw = localStorage.getItem('apex_deleted_user_emails');
+      const deletedList: string[] = deletedRaw ? JSON.parse(deletedRaw) : [];
+      if (!deletedList.includes(emailToBlock)) {
+        deletedList.push(emailToBlock);
+        localStorage.setItem('apex_deleted_user_emails', JSON.stringify(deletedList));
+      }
+      const currUserRaw = localStorage.getItem('apex_current_user');
+      if (currUserRaw) {
+        const currUser = JSON.parse(currUserRaw);
+        if ((currUser?.email || '').trim().toLowerCase() === emailToBlock) {
+          localStorage.removeItem('apex_current_user');
+        }
+      }
+    } catch {}
+
+    const updatedUsers = currentUsers.filter(
+      (u) =>
+        String(u.id).toLowerCase() !== targetKey &&
+        (u.email || '').trim().toLowerCase() !== emailToBlock
+    );
+
+    await syncUsersEverywhere(updatedUsers, `User "${emailToBlock}" deleted!`, 'info');
+  };
+
+  const handleClearAllUsers = async () => {
+    try {
+      const allEmails = [
+        ...(state.users || []).map((u) => (u.email || '').trim().toLowerCase()),
+        ...(state.orders || []).map((o) => (o.email || '').trim().toLowerCase())
+      ].filter(Boolean);
+      localStorage.setItem('apex_deleted_user_emails', JSON.stringify(Array.from(new Set(allEmails))));
+      localStorage.removeItem('apex_current_user');
+    } catch {}
+    await syncUsersEverywhere([], 'All users deleted!', 'info');
   };
 
   // Notifications Actions
@@ -1378,6 +1477,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
               onUpdateStatus={handleUpdateOrderStatus}
               onDeleteOrder={handleDeleteOrder}
               onClearAllOrders={handleClearAllOrders}
+              onAddUser={handleAddUser}
+              onDeleteUser={handleDeleteUser}
+              onClearAllUsers={handleClearAllUsers}
             />
           )}
 

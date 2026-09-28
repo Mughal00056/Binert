@@ -382,12 +382,44 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch {}
     };
+    const handleProductsSync = () => {
+      try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_PRODUCTS);
+        if (saved) {
+          setProducts(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    const handleUsersSync = () => {
+      try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_USERS);
+        if (saved) {
+          const parsedUsers: UserProfile[] = JSON.parse(saved);
+          setRegisteredUsers(parsedUsers);
+          setCurrentUser((curr) => {
+            if (!curr) return null;
+            const stillExists = parsedUsers.find(
+              (u) => (u.email || '').trim().toLowerCase() === (curr.email || '').trim().toLowerCase()
+            );
+            if (!stillExists) {
+              try {
+                localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
+              } catch {}
+              return null;
+            }
+            return { ...curr, ...stillExists };
+          });
+        }
+      } catch {}
+    };
 
     const handleAllStorage = () => {
       handleStorageChange();
       handleLaunchSync();
       handleCategoriesSync();
       handleOrdersSync();
+      handleProductsSync();
+      handleUsersSync();
     };
 
     window.addEventListener('storage', handleAllStorage);
@@ -395,12 +427,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.addEventListener('apex_launch_updated', handleLaunchSync);
     window.addEventListener('apex_categories_updated', handleCategoriesSync);
     window.addEventListener('apex_orders_updated', handleOrdersSync);
+    window.addEventListener('apex_products_updated', handleProductsSync);
+    window.addEventListener('apex_users_updated', handleUsersSync);
     return () => {
       window.removeEventListener('storage', handleAllStorage);
       window.removeEventListener('apex_features_updated', handleStorageChange);
       window.removeEventListener('apex_launch_updated', handleLaunchSync);
       window.removeEventListener('apex_categories_updated', handleCategoriesSync);
       window.removeEventListener('apex_orders_updated', handleOrdersSync);
+      window.removeEventListener('apex_products_updated', handleProductsSync);
+      window.removeEventListener('apex_users_updated', handleUsersSync);
     };
   }, []);
 
@@ -492,6 +528,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const syncUsersToFirebase = (usersList: UserProfile[]) => {
+    try {
+      const activeEmails = new Set(usersList.map((u) => (u.email || '').trim().toLowerCase()));
+      const deletedRaw = localStorage.getItem('apex_deleted_user_emails');
+      if (deletedRaw) {
+        const deletedList: string[] = JSON.parse(deletedRaw);
+        localStorage.setItem(
+          'apex_deleted_user_emails',
+          JSON.stringify(deletedList.filter((e) => !activeEmails.has(e.trim().toLowerCase())))
+        );
+      }
+      localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(usersList));
+      window.dispatchEvent(new Event('apex_users_updated'));
+    } catch {}
+
     updateFirebasePartial({
       users: usersList.map((u) => ({
         id: u.id,
@@ -723,15 +773,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const applyRemoteStoreState = (data: StoreState) => {
       if (!isMounted || !data) return;
 
-      if (Array.isArray(data.products) && data.products.length > 0) {
-        setProducts((currentProds) =>
-          data.products.map((dp) => {
+      if (Array.isArray(data.products)) {
+        setProducts((currentProds) => {
+          const nextProds = data.products.map((dp) => {
             const matched = currentProds.find((cp) => cp.id === dp.id);
             return matched
-              ? ({ ...dp, rating: matched.rating, reviews: matched.reviews } as Product)
+              ? ({ ...dp, rating: dp.rating ?? matched.rating, reviews: dp.reviews ?? matched.reviews } as Product)
               : (dp as Product);
-          })
-        );
+          });
+          try {
+            localStorage.setItem(LOCAL_STORAGE_PRODUCTS, JSON.stringify(nextProds));
+          } catch {}
+          return nextProds;
+        });
       }
 
       if (Array.isArray(data.promos)) {
@@ -766,28 +820,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCategories(data.categories);
       }
 
-      if (Array.isArray(data.users) && data.users.length > 0) {
-        setRegisteredUsers((prev) => {
-          const map = new Map<string, UserProfile>();
-          for (const u of prev) {
-            if (u.email) map.set(u.email.toLowerCase(), u);
+      if (Array.isArray(data.users)) {
+        const remoteUsers: UserProfile[] = data.users
+          .filter((ru) => ru && ru.email)
+          .map((ru) => ({
+            id: ru.id || `u_${ru.email}`,
+            name: ru.name || ru.email.split('@')[0],
+            email: ru.email,
+            password: ru.password || '',
+            role: ru.role || 'user',
+            createdAt: ru.createdAt || new Date().toISOString(),
+            lastLoginAt: ru.lastLoginAt
+          }));
+        setRegisteredUsers(remoteUsers);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(remoteUsers));
+        } catch {}
+        setCurrentUser((curr) => {
+          if (!curr) return null;
+          const stillExists = remoteUsers.find(
+            (u) => (u.email || '').trim().toLowerCase() === (curr.email || '').trim().toLowerCase()
+          );
+          if (!stillExists) {
+            try {
+              localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
+            } catch {}
+            return null;
           }
-          for (const ru of data.users || []) {
-            if (ru && ru.email) {
-              const key = ru.email.toLowerCase();
-              const existing = map.get(key);
-              map.set(key, {
-                ...(existing || {}),
-                ...ru,
-                password: ru.password || existing?.password || ''
-              });
-            }
-          }
-          const merged = Array.from(map.values());
-          try {
-            localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(merged));
-          } catch {}
-          return merged;
+          return stillExists ? { ...curr, ...stillExists } : curr;
         });
       }
 
