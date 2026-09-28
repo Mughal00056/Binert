@@ -21,8 +21,9 @@ export interface PromoCode {
   discount: number; // e.g. 0.20 for 20%
   desc?: string;
   badge?: string;
-  badgeType?: 'new' | 'hot' | 'normal';
+  badgeType?: 'new' | 'hot' | 'normal' | 'promo' | string;
   active?: boolean;
+  image?: string;
 }
 
 export interface SectionConfig {
@@ -35,6 +36,7 @@ export interface SectionConfig {
 }
 
 export interface StoreInfo {
+  name?: string;
   owner: string;
   city: string;
   phone: string;

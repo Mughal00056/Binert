@@ -697,11 +697,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       if (status === 'otp_sent') {
         entryTitle = 'Admin Approved — OTP Dispatched';
         entryNote = `Admin verified payment details and dispatched 6-digit confirmation OTP: ${nextOtp}.`;
+      } else if (status === 'processing') {
+        entryTitle = 'Order Processing Started';
+        entryNote = 'Admin marked your order as currently processing.';
       } else if (status === 'verified' || status === 'delivered') {
         entryTitle = 'Order Verified & Delivered';
-        entryNote = 'Payment verified and order completed by Admin.';
+        entryNote = 'Payment verified and order delivered by Admin.';
       } else if (status === 'rejected') {
-        entryTitle = 'Payment Rejected';
+        entryTitle = 'Order Rejected';
         entryNote = 'Merchant declined payment proof or transaction ID.';
       }
 
@@ -737,24 +740,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         orderId
       };
       updatedNotifications = [otpNotif, ...state.notifications];
+    } else if (status === 'processing') {
+      const procNotif: NotificationItem = {
+        id: 'notif-' + Date.now(),
+        type: 'order',
+        icon: 'fa-gears',
+        title: `Order #${String(orderId).slice(-6)} is Now Processing`,
+        desc: `Admin is currently processing and preparing your order #${String(orderId).slice(-6)}.`,
+        time: Date.now(),
+        active: true,
+        targetEmail,
+        orderId
+      };
+      updatedNotifications = [procNotif, ...state.notifications];
     } else if (status === 'verified' || status === 'delivered') {
       const verNotif: NotificationItem = {
         id: 'notif-' + Date.now(),
         type: 'order',
         icon: 'fa-circle-check',
-        title: `Order #${String(orderId).slice(-6)} Verified & Approved! 🎉`,
-        desc: `Your order has been verified and approved by ApexStore Admin.`,
+        title: `Order #${String(orderId).slice(-6)} Delivered! 🎉`,
+        desc: `Your order #${String(orderId).slice(-6)} has been verified and delivered by Admin.`,
         time: Date.now(),
         active: true,
         targetEmail,
         orderId
       };
       updatedNotifications = [verNotif, ...state.notifications];
+    } else if (status === 'rejected') {
+      const rejNotif: NotificationItem = {
+        id: 'notif-' + Date.now(),
+        type: 'alert',
+        icon: 'fa-circle-xmark',
+        title: `Order #${String(orderId).slice(-6)} Rejected`,
+        desc: `Your order #${String(orderId).slice(-6)} was rejected by Admin during payment review.`,
+        time: Date.now(),
+        active: true,
+        targetEmail,
+        orderId
+      };
+      updatedNotifications = [rejNotif, ...state.notifications];
     }
 
     setState((prev) => ({ ...prev, orders: updated, notifications: updatedNotifications }));
     try {
       localStorage.setItem('apex_orders', JSON.stringify(updated));
+      localStorage.setItem('apex_notifications', JSON.stringify(updatedNotifications));
       window.dispatchEvent(new Event('apex_orders_updated'));
     } catch {}
 

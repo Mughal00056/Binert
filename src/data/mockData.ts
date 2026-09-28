@@ -51,6 +51,7 @@ export const INITIAL_PROMO_CODES: PromoCode[] = FALLBACK_PROMOS.map((p) => ({
 }));
 
 export const INITIAL_STORE_INFO: StoreInfo = {
+  name: 'ApexStore',
   owner: 'Anees Abid',
   email: 'founderofapexstore@gmail.com',
   phone: '+92 345 5724552',

@@ -326,6 +326,18 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                             <span>View</span>
                           </button>
 
+                          {status !== 'processing' && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateStatus(orderIdStr, 'processing')}
+                              className="px-2.5 py-1.5 rounded-lg bg-purple-950/80 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-600/50 text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                              title="Mark Order as Processing"
+                            >
+                              <i className="fa-solid fa-gears text-xs"></i>
+                              <span>Processing</span>
+                            </button>
+                          )}
+
                           {status !== 'delivered' && status !== 'verified' && (
                             <button
                               type="button"

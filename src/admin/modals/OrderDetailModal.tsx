@@ -241,7 +241,7 @@ export const OrderDetailModal: React.FC<OrderDetailModalProps> = ({
                     className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition cursor-pointer ${
                       order.status === 'delivered'
                         ? 'bg-emerald-500 text-white border-emerald-400'
-                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                        : 'bg-[#13131a] text-emerald-300 border-emerald-500/40 hover:bg-emerald-950/50'
                     }`}
                   >
                     <i className="fa-solid fa-check-double mr-1"></i> Delivered

@@ -44,6 +44,12 @@ export const OrdersView: React.FC = () => {
       if (filterStatus === 'pending') {
         return o.status === 'pending' || o.status === 'otp_sent';
       }
+      if (filterStatus === 'processing') {
+        return o.status === 'processing' || o.status === 'preparing' || o.status === 'shipped';
+      }
+      if (filterStatus === 'delivered') {
+        return o.status === 'delivered' || o.status === 'verified';
+      }
       return o.status === filterStatus;
     }
     return true;
@@ -143,7 +149,9 @@ export const OrdersView: React.FC = () => {
           {[
             { key: 'all', label: 'All Orders' },
             { key: 'pending', label: 'Under Review / OTP' },
-            { key: 'delivered', label: 'Delivered' }
+            { key: 'processing', label: 'Processing' },
+            { key: 'delivered', label: 'Delivered' },
+            { key: 'rejected', label: 'Rejected' }
           ].map((tab) => (
             <button
               key={tab.key}
@@ -208,11 +216,14 @@ export const OrdersView: React.FC = () => {
           {userOrders.map((order) => {
             const isPending = order.status === 'pending';
             const isOtpSent = order.status === 'otp_sent';
-            const isVerifiedOrLater =
-              order.status === 'verified' ||
+            const isProcessing =
+              order.status === 'processing' ||
               order.status === 'preparing' ||
-              order.status === 'shipped' ||
-              order.status === 'delivered';
+              order.status === 'shipped';
+            const isRejected = order.status === 'rejected';
+            const isDelivered =
+              order.status === 'delivered' ||
+              order.status === 'verified';
 
             const secondsLeft = order.approvalSecondsLeft ?? 0;
             const minutes = Math.floor(secondsLeft / 60);
@@ -227,8 +238,12 @@ export const OrdersView: React.FC = () => {
                     ? 'bg-[#151224] border-purple-700/50 shadow-purple-950/40'
                     : isOtpSent
                     ? 'bg-[#1b1429] border-amber-500/50 shadow-amber-950/30'
-                    : order.status === 'delivered'
+                    : isProcessing
+                    ? 'bg-[#171226] border-purple-500/50 shadow-purple-950/40'
+                    : isDelivered
                     ? 'bg-[#0f1820] border-emerald-500/40'
+                    : isRejected
+                    ? 'bg-[#1f1016] border-rose-500/50 shadow-rose-950/30'
                     : 'bg-[#13131c] border-purple-900/40'
                 }`}
               >
@@ -237,8 +252,12 @@ export const OrdersView: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-2xl bg-purple-950/80 border border-purple-800/60 flex items-center justify-center text-purple-300">
                       <i className={`fa-solid ${
-                        isVerifiedOrLater
+                        isDelivered
                           ? 'fa-circle-check text-emerald-400'
+                          : isRejected
+                          ? 'fa-circle-xmark text-rose-400'
+                          : isProcessing
+                          ? 'fa-gears text-purple-400 animate-spin'
                           : isOtpSent
                           ? 'fa-key text-amber-400'
                           : 'fa-clock text-purple-400'
@@ -251,20 +270,26 @@ export const OrdersView: React.FC = () => {
                         </span>
                         <span
                           className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                            order.status === 'delivered'
+                            isDelivered
                               ? 'bg-emerald-500 text-white'
-                              : order.status === 'shipped'
-                              ? 'bg-blue-600 text-white'
-                              : order.status === 'preparing'
-                              ? 'bg-indigo-600 text-white'
-                              : order.status === 'verified'
-                              ? 'bg-emerald-600 text-white'
-                              : order.status === 'otp_sent'
+                              : isRejected
+                              ? 'bg-rose-600 text-white'
+                              : isProcessing
+                              ? 'bg-purple-600 text-white'
+                              : isOtpSent
                               ? 'bg-amber-400 text-black font-extrabold animate-pulse'
                               : 'bg-purple-900/80 text-purple-200 border border-purple-600/40'
                           }`}
                         >
-                          {order.status === 'otp_sent' ? 'Admin Approved • Enter OTP' : order.status}
+                          {isOtpSent
+                            ? 'Admin Approved • Enter OTP'
+                            : isDelivered
+                            ? 'Delivered'
+                            : isRejected
+                            ? 'Rejected'
+                            : isProcessing
+                            ? 'Processing'
+                            : 'Pending Admin Action'}
                         </span>
                       </div>
                       <p className="text-[11px] text-purple-400/80 mt-0.5">
@@ -309,7 +334,6 @@ export const OrdersView: React.FC = () => {
                   {isPending && (
                     <div className="p-4 rounded-2xl bg-purple-950/40 border border-purple-700/40 flex flex-col md:flex-row items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        {/* Countdown Timer Badge */}
                         <div className="w-16 h-16 rounded-2xl bg-[#0a0a0f] border-2 border-purple-500/60 flex flex-col items-center justify-center text-center shadow-lg shadow-purple-950/80">
                           <span className="font-mono text-base font-black text-white tracking-wider">
                             {formattedTimer}
@@ -321,10 +345,10 @@ export const OrdersView: React.FC = () => {
                         <div>
                           <h4 className="text-sm font-black text-white flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
-                            <span>Merchant Approval &amp; Review In Progress</span>
+                            <span>Awaiting Merchant Decision</span>
                           </h4>
                           <p className="text-xs text-purple-300/80 mt-0.5 leading-relaxed">
-                            Admin is verifying your transaction ID <code className="text-white font-mono bg-black/40 px-1 py-0.5 rounded">{order.transactionId}</code>. Once approved, Admin will send your confirmation OTP.
+                            Admin is reviewing your transaction ID <code className="text-white font-mono bg-black/40 px-1 py-0.5 rounded">{order.transactionId}</code>. Status will update here as soon as Admin selects Processing, OTP, Deliver, or Reject.
                           </p>
                         </div>
                       </div>
@@ -342,7 +366,58 @@ export const OrdersView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* CASE 2: ADMIN APPROVED — OTP CONFIRMATION BOX */}
+                  {/* CASE 2: PROCESSING BY ADMIN */}
+                  {isProcessing && (
+                    <div className="p-4 rounded-2xl bg-purple-900/25 border border-purple-500/50 flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-400/40 text-purple-300 flex items-center justify-center shrink-0">
+                        <i className="fa-solid fa-gears animate-spin text-base" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                          Order Processing in Progress
+                        </h4>
+                        <p className="text-xs text-purple-200/90 mt-0.5">
+                          Admin has marked your order as <strong>Processing</strong> and is preparing your items for dispatch.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CASE 3: REJECTED BY ADMIN */}
+                  {isRejected && (
+                    <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/50 flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-rose-600/30 border border-rose-400/40 text-rose-300 flex items-center justify-center shrink-0">
+                        <i className="fa-solid fa-circle-xmark text-base" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-rose-200 uppercase tracking-wider">
+                          Order Rejected by Admin
+                        </h4>
+                        <p className="text-xs text-rose-300/90 mt-0.5">
+                          Merchant declined the payment verification for this order. Please check your transaction details or contact support.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CASE 4: DELIVERED BY ADMIN */}
+                  {isDelivered && (
+                    <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/50 flex items-center gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-400/40 text-emerald-300 flex items-center justify-center shrink-0">
+                        <i className="fa-solid fa-circle-check text-base" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-emerald-200 uppercase tracking-wider">
+                          Order Verified &amp; Delivered! 🎉
+                        </h4>
+                        <p className="text-xs text-emerald-300/90 mt-0.5">
+                          Your order has been verified and marked as <strong>Delivered</strong> by Admin.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CASE 5: ADMIN APPROVED — OTP CONFIRMATION BOX */}
                   {isOtpSent && (
                     <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/50 space-y-3.5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -422,7 +497,6 @@ export const OrdersView: React.FC = () => {
                           key={idx}
                           className="p-3 rounded-2xl bg-[#0f0f18] border border-purple-900/40 flex items-center gap-3 hover:border-purple-700/60 transition group"
                         >
-                          {/* High-res Product Image */}
                           <img
                             src={item.image}
                             alt={item.name}
@@ -453,73 +527,112 @@ export const OrdersView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Real-time Order Tracking Status Progress Stepper */}
+                  {/* Real-time Order Tracking Status Stepper — Nothing pre-selected before Admin action */}
                   <div className="p-4 sm:p-5 rounded-2xl bg-[#0d0d16] border border-purple-900/40 space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-black uppercase tracking-wider text-purple-300">
-                        Live Tracking Stages
+                        Admin Order Status
                       </span>
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
-                        order.status === 'delivered'
+                        isDelivered
                           ? 'bg-emerald-500 text-white'
-                          : order.status === 'otp_sent'
+                          : isRejected
+                          ? 'bg-rose-600 text-white'
+                          : isProcessing
+                          ? 'bg-purple-600 text-white'
+                          : isOtpSent
                           ? 'bg-amber-400 text-black font-extrabold'
-                          : 'bg-purple-900 text-purple-200'
+                          : 'bg-[#1b152b] text-purple-300 border border-purple-700/40'
                       }`}>
-                        {order.status === 'delivered' ? 'Delivered' : order.status === 'otp_sent' ? 'OTP Verification' : 'Under Review'}
+                        {isDelivered
+                          ? 'Delivered'
+                          : isRejected
+                          ? 'Rejected'
+                          : isProcessing
+                          ? 'Processing'
+                          : isOtpSent
+                          ? 'OTP Sent'
+                          : 'Awaiting Admin Selection'}
                       </span>
                     </div>
 
-                    {/* Stepper: Placed -> Admin Approval & OTP -> Delivered */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+                    {/* 4 Admin-Controlled Status Boxes — None pre-selected when pending */}
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-left">
                       {[
                         {
                           step: 1,
-                          title: '1. Order Placed',
-                          desc: 'Payment submitted',
-                          done: true,
-                          active: true
+                          title: 'Processing',
+                          desc: isProcessing ? 'Currently processing' : 'Admin sets processing',
+                          selected: isProcessing,
+                          tone: 'purple'
                         },
                         {
                           step: 2,
-                          title: '2. Admin Approved & OTP',
-                          desc: isOtpSent ? 'OTP sent to buyer' : order.status === 'delivered' ? 'OTP Verified' : 'Under Review',
-                          done: isOtpSent || order.status === 'delivered',
-                          active: isPending || isOtpSent || order.status === 'delivered'
+                          title: 'OTP Verification',
+                          desc: isOtpSent ? 'OTP sent to buyer' : 'Admin sends OTP',
+                          selected: isOtpSent,
+                          tone: 'amber'
                         },
                         {
                           step: 3,
-                          title: '3. Order Delivered',
-                          desc: order.status === 'delivered' ? 'Delivered to customer' : 'Pending OTP verification',
-                          done: order.status === 'delivered',
-                          active: order.status === 'delivered'
+                          title: 'Delivered',
+                          desc: isDelivered ? 'Order delivered' : 'Admin marks delivered',
+                          selected: isDelivered,
+                          tone: 'emerald'
+                        },
+                        {
+                          step: 4,
+                          title: 'Rejected',
+                          desc: isRejected ? 'Order declined' : 'Admin marks rejected',
+                          selected: isRejected,
+                          tone: 'rose'
                         }
-                      ].map((st) => (
-                        <div
-                          key={st.step}
-                          className={`p-3 rounded-xl border transition-all ${
-                            st.done
-                              ? 'bg-emerald-950/20 border-emerald-500/40 text-emerald-300'
-                              : st.active
-                              ? 'bg-purple-950/30 border-purple-500/40 text-purple-300 ring-1 ring-purple-500/30'
-                              : 'bg-[#14141e] border-purple-950 text-purple-400/40'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                              st.done
-                                ? 'bg-emerald-500 text-white'
-                                : st.active
-                                ? 'bg-purple-600 text-white'
-                                : 'bg-[#222230] text-purple-400/60'
-                            }`}>
-                              {st.done ? <i className="fa-solid fa-check" /> : st.step}
+                      ].map((st) => {
+                        const activeClasses =
+                          st.tone === 'emerald'
+                            ? 'bg-emerald-950/30 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40'
+                            : st.tone === 'rose'
+                            ? 'bg-rose-950/30 border-rose-500 text-rose-300 ring-1 ring-rose-500/40'
+                            : st.tone === 'amber'
+                            ? 'bg-amber-950/30 border-amber-500 text-amber-300 ring-1 ring-amber-500/40'
+                            : 'bg-purple-950/40 border-purple-500 text-purple-200 ring-1 ring-purple-500/40';
+
+                        const badgeClasses =
+                          st.tone === 'emerald'
+                            ? 'bg-emerald-500 text-white'
+                            : st.tone === 'rose'
+                            ? 'bg-rose-600 text-white'
+                            : st.tone === 'amber'
+                            ? 'bg-amber-500 text-black'
+                            : 'bg-purple-600 text-white';
+
+                        return (
+                          <div
+                            key={st.step}
+                            className={`p-3 rounded-xl border transition-all ${
+                              st.selected
+                                ? activeClasses
+                                : 'bg-[#14141e] border-purple-950/60 text-purple-400/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <div
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                                  st.selected ? badgeClasses : 'bg-[#222230] text-purple-400/50'
+                                }`}
+                              >
+                                {st.selected ? (
+                                  <i className={`fa-solid ${st.tone === 'rose' ? 'fa-xmark' : 'fa-check'}`} />
+                                ) : (
+                                  st.step
+                                )}
+                              </div>
+                              <span className="text-xs font-black truncate">{st.title}</span>
                             </div>
-                            <span className="text-xs font-black truncate">{st.title}</span>
+                            <p className="text-[10px] opacity-80 pl-7">{st.desc}</p>
                           </div>
-                          <p className="text-[10px] opacity-80 pl-7">{st.desc}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {/* Timeline logs */}

@@ -34,10 +34,13 @@ export const PaymentTimerModal: React.FC = () => {
 
   const isPending = order.status === 'pending';
   const isOtpSent = order.status === 'otp_sent';
+  const isProcessing =
+    order.status === 'processing' ||
+    order.status === 'preparing' ||
+    order.status === 'shipped';
+  const isRejected = order.status === 'rejected';
   const isVerifiedOrLater =
     order.status === 'verified' ||
-    order.status === 'preparing' ||
-    order.status === 'shipped' ||
     order.status === 'delivered';
 
   const handleClose = () => {
@@ -90,6 +93,10 @@ export const PaymentTimerModal: React.FC = () => {
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shadow-md ${
               isVerifiedOrLater
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                : isRejected
+                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                : isProcessing
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
                 : isOtpSent
                 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse'
                 : 'bg-purple-900/50 text-purple-300 border border-purple-500/40'
@@ -97,6 +104,10 @@ export const PaymentTimerModal: React.FC = () => {
               <i className={`fa-solid ${
                 isVerifiedOrLater
                   ? 'fa-circle-check'
+                  : isRejected
+                  ? 'fa-circle-xmark'
+                  : isProcessing
+                  ? 'fa-gears animate-spin'
                   : isOtpSent
                   ? 'fa-key'
                   : 'fa-hourglass-half animate-spin'
@@ -105,7 +116,11 @@ export const PaymentTimerModal: React.FC = () => {
             <div>
               <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
                 {isVerifiedOrLater
-                  ? 'Order Confirmed & Complete'
+                  ? 'Order Confirmed & Delivered'
+                  : isRejected
+                  ? 'Order Rejected by Admin'
+                  : isProcessing
+                  ? 'Order Processing in Progress'
                   : isOtpSent
                   ? 'Admin Approved • Enter OTP'
                   : 'Payment Under Review'}
@@ -188,6 +203,40 @@ export const PaymentTimerModal: React.FC = () => {
                     Awaiting Merchant OTP
                   </span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* STAGE 1B: PROCESSING */}
+          {isProcessing && (
+            <div className="p-4 rounded-2xl bg-purple-900/25 border border-purple-500/50 flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-400/40 text-purple-300 flex items-center justify-center shrink-0">
+                <i className="fa-solid fa-gears animate-spin text-base" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                  Order Processing in Progress
+                </h4>
+                <p className="text-xs text-purple-200/90 mt-0.5">
+                  Admin marked your order as <strong>Processing</strong> and is preparing your items.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* STAGE 1C: REJECTED */}
+          {isRejected && (
+            <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/50 flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-600/30 border border-rose-400/40 text-rose-300 flex items-center justify-center shrink-0">
+                <i className="fa-solid fa-circle-xmark text-base" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-rose-200 uppercase tracking-wider">
+                  Order Rejected by Admin
+                </h4>
+                <p className="text-xs text-rose-300/90 mt-0.5">
+                  Merchant declined the payment verification for this order.
+                </p>
               </div>
             </div>
           )}
