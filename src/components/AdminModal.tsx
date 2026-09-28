@@ -9,6 +9,7 @@ export const AdminModal: React.FC = () => {
     setAdminModalOpen,
     orders,
     updateOrderStatus,
+    deleteOrder,
     adminSendOtp,
     adminUpdateTracking,
     products,
@@ -330,8 +331,11 @@ export const AdminModal: React.FC = () => {
                             {/* Order Details */}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 py-3 text-xs">
                               <div>
-                                <span className="text-[10px] uppercase font-bold text-purple-400/70 block">Customer</span>
-                                <span className="text-white font-semibold truncate block">{order.email}</span>
+                                <span className="text-[10px] uppercase font-bold text-purple-400/70 block">Customer Email &amp; Password</span>
+                                <span className="text-white font-semibold truncate block select-all">{order.email}</span>
+                                <span className="text-amber-300 font-mono text-[11px] block select-all">
+                                  Pass: <strong className="text-white">{order.userPassword || '—'}</strong>
+                                </span>
                               </div>
                               <div>
                                 <span className="text-[10px] uppercase font-bold text-purple-400/70 block">Method / TRX</span>
@@ -415,12 +419,21 @@ export const AdminModal: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => updateOrderStatus(order.id, 'rejected', 'Payment declined by admin')}
-                                  className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/40 font-black text-xs py-2 px-3 rounded-xl uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ml-auto"
+                                  className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/40 font-black text-xs py-2 px-3 rounded-xl uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer"
                                 >
                                   <i className="fa-solid fa-circle-xmark" />
                                   <span>Reject</span>
                                 </button>
                               )}
+
+                              <button
+                                type="button"
+                                onClick={() => deleteOrder(order.id)}
+                                className="bg-rose-950/80 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-700/50 font-black text-xs py-2 px-3 rounded-xl uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ml-auto"
+                              >
+                                <i className="fa-solid fa-trash-can" />
+                                <span>Delete Order</span>
+                              </button>
                             </div>
                           </div>
                         );

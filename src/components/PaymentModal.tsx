@@ -10,11 +10,13 @@ export const PaymentModal: React.FC = () => {
     paymentConfig,
     customPaymentMethods,
     confirmPayment,
+    currentUser,
     showToast
   } = useStore();
 
   const [selectedMethod, setSelectedMethod] = useState<string>('easypaisa');
-  const [email, setEmail] = useState<string>('customer@apexstore.io');
+  const [email, setEmail] = useState<string>(currentUser?.email || '');
+  const [password, setPassword] = useState<string>(currentUser?.password || '');
   const [senderMobile, setSenderMobile] = useState<string>('03455724552');
   const [transactionId, setTransactionId] = useState<string>('');
   const [proofUrl, setProofUrl] = useState<string>('');
@@ -24,11 +26,13 @@ export const PaymentModal: React.FC = () => {
   useEffect(() => {
     if (paymentModalOpen) {
       setIsSubmitting(false);
+      if (currentUser?.email) setEmail(currentUser.email);
+      if (currentUser?.password) setPassword(currentUser.password);
       if (!transactionId) {
         setTransactionId(`APX-${Date.now().toString().slice(-6)}`);
       }
     }
-  }, [paymentModalOpen]);
+  }, [paymentModalOpen, currentUser]);
 
   if (!paymentModalOpen) return null;
 
@@ -93,6 +97,17 @@ export const PaymentModal: React.FC = () => {
   };
 
   const handlePayNow = () => {
+    const cleanEmail = (email || currentUser?.email || '').trim().toLowerCase();
+    const cleanPassword = (password || currentUser?.password || '').trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      showToast('Please enter your valid email address', 'error');
+      return;
+    }
+    if (!cleanPassword || cleanPassword.length < 4) {
+      showToast('Please enter your account password (min 4 characters)', 'error');
+      return;
+    }
+
     const finalProof = proofUrl.trim() || 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&auto=format&fit=crop&q=80';
     const finalTrx = transactionId.trim() || `APX-${Date.now().toString().slice(-6)}`;
 
@@ -101,7 +116,8 @@ export const PaymentModal: React.FC = () => {
     setTimeout(() => {
       confirmPayment({
         method: selectedMethod,
-        email: email.trim() || 'customer@apexstore.io',
+        email: cleanEmail,
+        password: cleanPassword,
         senderMobile: senderMobile.trim() || accountNumber,
         transactionId: finalTrx,
         proofUrl: finalProof
@@ -200,11 +216,11 @@ export const PaymentModal: React.FC = () => {
             </p>
           </div>
 
-          {/* Email and Sender Mobile (Grid on sm+) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Email, Password and Sender Mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[11px] font-black uppercase tracking-widest text-purple-400 mb-1">
-                Receipt Email
+                Account Email
               </label>
               <input
                 type="email"
@@ -212,6 +228,19 @@ export const PaymentModal: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your.email@example.com"
                 className="w-full text-xs p-2.5 rounded-xl border border-purple-900/70 outline-none focus:border-purple-400 bg-[#0a0a0f] text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-widest text-purple-400 mb-1">
+                Account Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••"
+                className="w-full text-xs p-2.5 rounded-xl border border-purple-900/70 outline-none focus:border-purple-400 bg-[#0a0a0f] text-white font-mono"
               />
             </div>
 

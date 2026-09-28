@@ -6,6 +6,7 @@ import {
   Order,
   OrderStatus,
   Section,
+  CategoryItem,
   LaunchPoolProduct,
   LaunchConfig,
   ProductLayoutType,
@@ -16,7 +17,7 @@ import {
   AnnouncementSettings
 } from '../types/store';
 import { FeatureToggles, DEFAULT_FEATURE_TOGGLES } from '../types';
-import { INITIAL_STORE_STATE, FALLBACK_SECTIONS, INITIAL_TRANSCRIPT_SETTINGS } from '../lib/constants';
+import { INITIAL_STORE_STATE, FALLBACK_SECTIONS, FALLBACK_CATEGORIES, INITIAL_TRANSCRIPT_SETTINGS } from '../lib/constants';
 import {
   fetchStoreFromFirebase,
   syncStoreToFirebase,
@@ -416,9 +417,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   const handleDeleteProduct = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
     const updated = state.products.filter((p) => p.id !== id);
     setState((prev) => ({ ...prev, products: updated }));
+    try {
+      localStorage.setItem('apex_products', JSON.stringify(updated));
+    } catch {}
     showToast('Product deleted', 'info');
 
     try {
@@ -481,6 +484,62 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     }
   };
 
+  // Category Actions (Add Category, Add/Change/Delete Category Image, Delete Category)
+  const syncCategoriesEverywhere = async (updatedCategories: CategoryItem[], toastMsg?: string) => {
+    setState((prev) => ({ ...prev, categories: updatedCategories }));
+    try {
+      localStorage.setItem('apex_categories', JSON.stringify(updatedCategories));
+      window.dispatchEvent(new Event('apex_categories_updated'));
+    } catch {}
+    try {
+      setSyncStatus('saving');
+      await updateFirebasePartial({ categories: updatedCategories });
+      setSyncStatus('synced');
+      if (toastMsg) showToast(toastMsg, 'success');
+    } catch {
+      setSyncStatus('error');
+    }
+  };
+
+  const handleAddCategory = async (categoryData: Omit<CategoryItem, 'id'>) => {
+    const newCat: CategoryItem = {
+      id: 'cat_' + Date.now(),
+      name: categoryData.name,
+      filter: categoryData.filter,
+      image: categoryData.image || '',
+      icon: categoryData.icon || 'fa-layer-group'
+    };
+    const currentCats = Array.isArray(state.categories) ? state.categories : FALLBACK_CATEGORIES;
+    const updated = [...currentCats, newCat];
+    await syncCategoriesEverywhere(updated, `Category "${newCat.name}" added!`);
+  };
+
+  const handleUpdateCategory = async (categoryId: string | number, partial: Partial<CategoryItem>) => {
+    const currentCats = Array.isArray(state.categories) ? state.categories : FALLBACK_CATEGORIES;
+    const updated = currentCats.map((c) =>
+      String(c.id) === String(categoryId) ? { ...c, ...partial } : c
+    );
+    await syncCategoriesEverywhere(updated, 'Category image updated!');
+  };
+
+  const handleDeleteCategoryImage = async (categoryId: string | number) => {
+    const currentCats = Array.isArray(state.categories) ? state.categories : FALLBACK_CATEGORIES;
+    const updated = currentCats.map((c) =>
+      String(c.id) === String(categoryId) ? { ...c, image: '' } : c
+    );
+    await syncCategoriesEverywhere(updated, 'Category image removed!');
+  };
+
+  const handleDeleteCategory = async (categoryId: string | number) => {
+    const currentCats = Array.isArray(state.categories) ? state.categories : FALLBACK_CATEGORIES;
+    const updated = currentCats.filter((c) => String(c.id) !== String(categoryId));
+    await syncCategoriesEverywhere(updated, 'Category deleted!');
+  };
+
+  const handleResetCategories = async () => {
+    await syncCategoriesEverywhere(FALLBACK_CATEGORIES, 'Categories reset to default!');
+  };
+
   // Section Actions
   const handleSaveSection = async (sectionData: Partial<Section>) => {
     let updatedSections: Section[];
@@ -516,7 +575,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   const handleDeleteSection = async (id: number) => {
-    if (!window.confirm('Delete this section?')) return;
     const updated = state.sections.filter((s) => s.id !== id);
     setState((prev) => ({ ...prev, sections: updated }));
     try {
@@ -592,7 +650,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   const handleDeletePromo = async (index: number) => {
-    if (!window.confirm('Delete this promo code?')) return;
     const updated = state.promos.filter((_, i) => i !== index);
     setState((prev) => ({ ...prev, promos: updated }));
     try {
@@ -618,9 +675,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   // Order Actions
-  const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
+  const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus, customOtp?: string) => {
     const generatedOtp =
-      status === 'otp_sent' ? Math.floor(100000 + Math.random() * 900000).toString() : undefined;
+      status === 'otp_sent'
+        ? customOtp && customOtp.trim().length >= 4
+          ? customOtp.trim()
+          : Math.floor(100000 + Math.random() * 900000).toString()
+        : undefined;
+
+    const targetOrder = state.orders.find((o) => String(o.id) === String(orderId));
+    const targetEmail = targetOrder?.email ? targetOrder.email.trim().toLowerCase() : undefined;
 
     const updated = state.orders.map((o) => {
       if (String(o.id) !== String(orderId)) return o;
@@ -668,7 +732,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         title: `Admin Approved Order #${String(orderId).slice(-6)}!`,
         desc: `Your confirmation OTP is: ${generatedOtp}. Enter OTP in My Orders to finalize checkout.`,
         time: Date.now(),
-        active: true
+        active: true,
+        targetEmail,
+        orderId
       };
       updatedNotifications = [otpNotif, ...state.notifications];
     } else if (status === 'verified' || status === 'delivered') {
@@ -679,12 +745,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         title: `Order #${String(orderId).slice(-6)} Verified & Approved! 🎉`,
         desc: `Your order has been verified and approved by ApexStore Admin.`,
         time: Date.now(),
-        active: true
+        active: true,
+        targetEmail,
+        orderId
       };
       updatedNotifications = [verNotif, ...state.notifications];
     }
 
     setState((prev) => ({ ...prev, orders: updated, notifications: updatedNotifications }));
+    try {
+      localStorage.setItem('apex_orders', JSON.stringify(updated));
+      window.dispatchEvent(new Event('apex_orders_updated'));
+    } catch {}
+
     if (selectedOrder && String(selectedOrder.id) === String(orderId)) {
       const updatedSelected = updated.find((o) => String(o.id) === String(orderId)) || null;
       setSelectedOrder(updatedSelected);
@@ -695,7 +768,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       await updateFirebasePartial({ orders: updated, notifications: updatedNotifications });
       setSyncStatus('synced');
       if (status === 'otp_sent' && generatedOtp) {
-        showToast(`OTP ${generatedOtp} sent for Order #${String(orderId).slice(-6)}!`, 'success');
+        showToast(
+          `OTP ${generatedOtp} sent exclusively to ${targetEmail || `Order #${String(orderId).slice(-6)}`}!`,
+          'success'
+        );
       } else {
         showToast(`Order #${String(orderId).slice(-6)} marked as ${status.toUpperCase()}!`, 'success');
       }
@@ -705,10 +781,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!window.confirm('Are you sure you want to delete this order?')) return;
-    const updated = state.orders.filter((o) => o.id !== orderId);
+    const updated = state.orders.filter((o) => String(o.id) !== String(orderId));
     setState((prev) => ({ ...prev, orders: updated }));
-    if (selectedOrder && selectedOrder.id === orderId) {
+    try {
+      localStorage.setItem('apex_orders', JSON.stringify(updated));
+      window.dispatchEvent(new Event('apex_orders_updated'));
+    } catch {}
+
+    if (selectedOrder && String(selectedOrder.id) === String(orderId)) {
       setSelectedOrder(null);
       setOrderDetailOpen(false);
     }
@@ -716,15 +796,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('saving');
       await updateFirebasePartial({ orders: updated });
       setSyncStatus('synced');
-      showToast(`Order #${orderId} deleted`, 'info');
+      showToast(`Order #${String(orderId).slice(-6)} deleted permanently`, 'info');
     } catch {
       setSyncStatus('error');
     }
   };
 
   const handleClearAllOrders = async () => {
-    if (!window.confirm('Are you sure you want to clear all orders?')) return;
     setState((prev) => ({ ...prev, orders: [] }));
+    try {
+      localStorage.setItem('apex_orders', JSON.stringify([]));
+      window.dispatchEvent(new Event('apex_orders_updated'));
+    } catch {}
     try {
       setSyncStatus('saving');
       await updateFirebasePartial({ orders: [] });
@@ -768,7 +851,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   const handleClearAllNotifications = async () => {
-    if (!window.confirm('Clear all notifications?')) return;
     setState((prev) => ({ ...prev, notifications: [] }));
     try {
       setSyncStatus('saving');
@@ -807,12 +889,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
 
   // Launch Config Actions
   const handleUpdateLaunchConfigPartial = async (partial: Partial<LaunchConfig>) => {
-    const updated = { ...state.launchConfig, ...partial };
-    setState((prev) => ({ ...prev, launchConfig: updated }));
+    const nextConfig: LaunchConfig = {
+      ...state.launchConfig,
+      ...partial
+    };
+    if (nextConfig.isRunning && !partial.endTime) {
+      nextConfig.endTime = Date.now() + (nextConfig.secondsLeft || 300) * 1000;
+    } else if (!nextConfig.isRunning) {
+      nextConfig.endTime = null;
+    }
+
+    setState((prev) => ({ ...prev, launchConfig: nextConfig }));
+    try {
+      localStorage.setItem('apex_launch', JSON.stringify(nextConfig));
+      window.dispatchEvent(new Event('apex_launch_updated'));
+    } catch {}
+
     try {
       setSyncStatus('saving');
-      await updateFirebasePartial({ launchConfig: updated });
+      await updateFirebasePartial({ launchConfig: nextConfig });
       setSyncStatus('synced');
+      showToast('Launch countdown timer updated live!', 'success');
     } catch {
       setSyncStatus('error');
     }
@@ -1200,7 +1297,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           {currentTab === 'categories' && (
             <SectionsTab
               sections={state.sections}
+              categories={Array.isArray(state.categories) ? state.categories : FALLBACK_CATEGORIES}
               products={state.products}
+              onAddCategory={handleAddCategory}
+              onUpdateCategory={handleUpdateCategory}
+              onDeleteCategoryImage={handleDeleteCategoryImage}
+              onDeleteCategory={handleDeleteCategory}
+              onResetCategories={handleResetCategories}
               onAddSection={() => {
                 setEditingSection(null);
                 setSectionModalOpen(true);
@@ -1237,6 +1340,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           {currentTab === 'orders' && (
             <OrdersTab
               orders={state.orders}
+              users={state.users || []}
               onViewOrder={(order) => {
                 setSelectedOrder(order);
                 setOrderDetailOpen(true);
@@ -1387,14 +1491,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       <OrderDetailModal
         isOpen={orderDetailOpen}
         order={selectedOrder}
+        userPassword={
+          selectedOrder?.userPassword ||
+          (state.users || []).find(
+            (u) => (u.email || '').trim().toLowerCase() === (selectedOrder?.email || '').trim().toLowerCase()
+          )?.password
+        }
         onClose={() => {
           setOrderDetailOpen(false);
           setSelectedOrder(null);
         }}
-        onUpdateStatus={(status) => {
+        onUpdateStatus={(status, customOtp) => {
           if (selectedOrder) {
-            handleUpdateOrderStatus(selectedOrder.id, status);
+            handleUpdateOrderStatus(String(selectedOrder.id), status, customOtp);
           }
+        }}
+        onDeleteOrder={(orderId) => {
+          handleDeleteOrder(orderId);
         }}
       />
 

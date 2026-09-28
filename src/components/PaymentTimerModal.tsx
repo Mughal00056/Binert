@@ -11,7 +11,7 @@ export const PaymentTimerModal: React.FC = () => {
     orders,
     currentOrder,
     verifyOrderOtp,
-    adminSendOtp,
+    deleteOrder,
     openOrdersView,
     setQuickViewProduct,
     products,
@@ -185,21 +185,9 @@ export const PaymentTimerModal: React.FC = () => {
                   <span>Status:</span>
                   <span className="inline-flex items-center gap-1 text-amber-400 font-extrabold uppercase text-[10px]">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                    Awaiting Approval
+                    Awaiting Merchant OTP
                   </span>
                 </div>
-              </div>
-
-              {/* Quick simulation helper for tester */}
-              <div className="pt-2 border-t border-purple-900/30">
-                <button
-                  type="button"
-                  onClick={() => adminSendOtp(order.id)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-700/50 text-purple-200 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <i className="fa-solid fa-bolt text-amber-400" />
-                  <span>Simulate Admin Approval &amp; Send OTP Now</span>
-                </button>
               </div>
             </div>
           )}
@@ -404,6 +392,18 @@ export const PaymentTimerModal: React.FC = () => {
               <span>View Slip</span>
             </button>
           )}
+
+          <button
+            onClick={() => {
+              deleteOrder(order.id);
+              handleClose();
+            }}
+            className="py-2.5 px-3 rounded-xl bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-800/50 text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5"
+            title="Delete this order"
+          >
+            <i className="fa-solid fa-trash-can" />
+            <span>Delete</span>
+          </button>
 
           <button
             onClick={handleClose}

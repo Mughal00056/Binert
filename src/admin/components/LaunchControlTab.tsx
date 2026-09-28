@@ -52,36 +52,40 @@ export const LaunchControlTab: React.FC<LaunchControlTabProps> = ({
     onUpdateConfig({
       totalSeconds: totalSecs,
       secondsLeft: totalSecs,
-      isRunning: false
+      isRunning: true,
+      endTime: Date.now() + totalSecs * 1000
     });
   };
 
   const handleApplyCustomTime = () => {
-    const totalSecs = (Number(mins) || 0) * 60 + (Number(secs) || 0);
-    if (totalSecs <= 0) return;
+    const totalSecs = Math.max(1, (Number(mins) || 0) * 60 + (Number(secs) || 0));
     onUpdateConfig({
       totalSeconds: totalSecs,
       secondsLeft: totalSecs,
-      isRunning: false
+      isRunning: config.isRunning,
+      endTime: config.isRunning ? Date.now() + totalSecs * 1000 : null
     });
   };
 
   const handleStart = () => {
-    const totalSecs = (Number(mins) || 0) * 60 + (Number(secs) || 0);
-    if (totalSecs <= 0) return;
-    if (!config.isRunning && config.secondsLeft <= 0) {
-      onUpdateConfig({
-        totalSeconds: totalSecs,
-        secondsLeft: totalSecs,
-        isRunning: true
-      });
-    } else {
-      onUpdateConfig({ isRunning: true });
-    }
+    const inputTotalSecs = (Number(mins) || 0) * 60 + (Number(secs) || 0);
+    const activeSecs =
+      inputTotalSecs > 0 && inputTotalSecs !== config.totalSeconds
+        ? inputTotalSecs
+        : config.secondsLeft > 0
+        ? config.secondsLeft
+        : Math.max(60, inputTotalSecs || 300);
+    const totalSecs = inputTotalSecs > 0 ? inputTotalSecs : config.totalSeconds || activeSecs;
+    onUpdateConfig({
+      totalSeconds: totalSecs,
+      secondsLeft: activeSecs,
+      isRunning: true,
+      endTime: Date.now() + activeSecs * 1000
+    });
   };
 
   const handlePause = () => {
-    onUpdateConfig({ isRunning: false });
+    onUpdateConfig({ isRunning: false, endTime: null });
   };
 
   const handleReset = () => {
@@ -89,7 +93,8 @@ export const LaunchControlTab: React.FC<LaunchControlTabProps> = ({
     onUpdateConfig({
       totalSeconds: totalSecs,
       secondsLeft: totalSecs,
-      isRunning: false
+      isRunning: false,
+      endTime: null
     });
   };
 
@@ -167,11 +172,26 @@ export const LaunchControlTab: React.FC<LaunchControlTabProps> = ({
                   max="59"
                   value={secs}
                   onChange={(e) => setSecs(parseInt(e.target.value, 10) || 0)}
-                  onBlur={handleApplyCustomTime}
                   className="w-full text-sm p-2.5 rounded-xl border border-slate-200 outline-none font-mono text-center font-black focus:border-indigo-600 transition"
                 />
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const totalSecs = Math.max(1, (Number(mins) || 0) * 60 + (Number(secs) || 0));
+                onUpdateConfig({
+                  totalSeconds: totalSecs,
+                  secondsLeft: totalSecs,
+                  isRunning: true,
+                  endTime: Date.now() + totalSecs * 1000
+                });
+              }}
+              className="w-full mt-2.5 bg-purple-600 hover:bg-purple-500 text-white font-black py-2 rounded-xl transition text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <i className="fa-solid fa-clock"></i> Set &amp; Update User Timer Now
+            </button>
 
             {/* Quick Presets */}
             <div className="grid grid-cols-3 gap-2 mt-3">

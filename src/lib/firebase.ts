@@ -27,33 +27,13 @@ function normalizeArray<T>(val: unknown, fallback: T[]): T[] {
   return fallback;
 }
 
-function normalizeOrders(val: unknown, fallback: Order[]): Order[] {
-  const arr = normalizeArray<Order>(val, fallback);
-  const localOrdersRaw = typeof window !== 'undefined' ? localStorage.getItem('apex_orders') : null;
-  let localOrders: Order[] = [];
-  if (localOrdersRaw) {
-    try {
-      const parsed = JSON.parse(localOrdersRaw);
-      if (Array.isArray(parsed)) {
-        localOrders = parsed.map((o) => ({
-          ...o,
-          id: String(o.id)
-        }));
-      }
-    } catch {
-      // ignore
-    }
-  }
-
+function normalizeOrders(val: unknown): Order[] {
+  if (val === undefined || val === null) return [];
+  const arr = normalizeArray<Order>(val, []);
   const map = new Map<string, Order>();
   for (const o of arr) {
     if (o && o.id !== undefined) {
       map.set(String(o.id), { ...o, id: String(o.id) });
-    }
-  }
-  for (const lo of localOrders) {
-    if (lo && lo.id !== undefined && !map.has(String(lo.id))) {
-      map.set(String(lo.id), { ...lo, id: String(lo.id) });
     }
   }
 
@@ -70,8 +50,13 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
   return {
     products: normalizeArray(data.products, INITIAL_STORE_STATE.products),
     promos: normalizeArray(data.promos, INITIAL_STORE_STATE.promos),
-    orders: normalizeOrders(data.orders, INITIAL_STORE_STATE.orders),
+    orders: normalizeOrders(data.orders),
     sections: normalizeArray(data.sections, INITIAL_STORE_STATE.sections),
+    categories:
+      data.categories !== undefined
+        ? normalizeArray(data.categories, [])
+        : INITIAL_STORE_STATE.categories,
+    users: normalizeArray(data.users, []),
     gallery: normalizeArray(data.gallery, INITIAL_STORE_STATE.gallery),
     galleryEnabled: data.galleryEnabled !== false,
     bannerImage: data.bannerImage !== undefined ? data.bannerImage : INITIAL_STORE_STATE.bannerImage,

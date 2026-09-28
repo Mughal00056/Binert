@@ -4,10 +4,14 @@ import { useStore } from '../context/StoreContext';
 export const LaunchCountdown: React.FC = () => {
   const { launchConfig } = useStore();
 
-  const totalSecs = Math.max(0, launchConfig.secondsLeft ?? 300);
-  const minutes = Math.floor(totalSecs / 60);
+  if (launchConfig.mode === 'private') return null;
+
+  const totalDuration = Math.max(1, launchConfig.totalSeconds || 300);
+  const totalSecs = Math.max(0, launchConfig.secondsLeft ?? totalDuration);
+  const hours = Math.floor(totalSecs / 3600);
+  const minutes = Math.floor((totalSecs % 3600) / 60);
   const seconds = totalSecs % 60;
-  const progressPercent = Math.min(100, Math.max(0, ((300 - totalSecs) / 300) * 100));
+  const progressPercent = Math.min(100, Math.max(0, ((totalDuration - totalSecs) / totalDuration) * 100));
 
   return (
     <div className="w-full bg-gradient-to-r from-purple-950 via-purple-900 to-purple-950 text-white text-xs relative overflow-hidden border-y border-purple-600/40 shadow-lg shadow-purple-950/40 select-none">
@@ -33,13 +37,25 @@ export const LaunchCountdown: React.FC = () => {
               Next Drop Launch
             </span>
             <span className="text-[9px] text-purple-300 font-semibold hidden xs:inline">
-              Exclusive Flagship Drops
+              {launchConfig.isRunning ? 'Live Countdown Active' : 'Exclusive Flagship Drops'}
             </span>
           </div>
         </div>
 
         {/* Live Digits Display */}
         <div className="flex items-center gap-1.5 shrink-0 bg-black/60 backdrop-blur-md px-3 py-1 rounded-xl border border-purple-500/40 shadow-inner">
+          {hours > 0 && (
+            <>
+              <div className="flex flex-col items-center min-w-[26px]">
+                <span className="font-mono font-black text-sm sm:text-base text-fuchsia-200 leading-tight">
+                  {String(hours).padStart(2, '0')}
+                </span>
+                <span className="text-[8px] uppercase font-bold text-fuchsia-400 tracking-tighter">hrs</span>
+              </div>
+              <span className="font-black text-purple-400 text-xs sm:text-sm animate-pulse">:</span>
+            </>
+          )}
+
           {/* Minutes */}
           <div className="flex flex-col items-center min-w-[26px]">
             <span className="font-mono font-black text-sm sm:text-base text-purple-200 leading-tight">
@@ -59,11 +75,11 @@ export const LaunchCountdown: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Info Pill */}
+        {/* Right Info Status */}
         <div className="hidden md:flex items-center gap-2 shrink-0">
           <span className="inline-flex items-center gap-1.5 text-[11px] text-purple-200 font-bold bg-purple-900/40 border border-purple-500/30 px-2.5 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-            Limited Quantities Guaranteed
+            <span className={`w-1.5 h-1.5 rounded-full ${launchConfig.isRunning ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
+            {launchConfig.isRunning ? 'Limited Quantities Guaranteed' : 'Drop Standby'}
           </span>
         </div>
       </div>

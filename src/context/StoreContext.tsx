@@ -5,6 +5,7 @@ import {
   CartItem,
   PromoCode,
   SectionConfig,
+  CategoryItem,
   StoreInfo,
   AnnouncementSettings,
   StoreNotification,
@@ -36,7 +37,7 @@ import {
   subscribeToFirebaseStore,
   updateFirebasePartial
 } from '../lib/firebase';
-import { INITIAL_TRANSCRIPT_SETTINGS } from '../lib/constants';
+import { INITIAL_TRANSCRIPT_SETTINGS, FALLBACK_CATEGORIES } from '../lib/constants';
 import { TranscriptSettings, ProductLayoutType, StoreState } from '../types/store';
 
 interface ToastMessage {
@@ -74,6 +75,7 @@ interface StoreContextType {
   products: Product[];
   visibleProducts: Product[];
   sections: SectionConfig[];
+  categories: CategoryItem[];
   promoCodes: PromoCode[];
   storeInfo: StoreInfo;
   announcement: AnnouncementSettings;
@@ -136,6 +138,7 @@ interface StoreContextType {
   setAdminModalOpen: (open: boolean) => void;
   orders: Order[];
   updateOrderStatus: (orderId: number, status: OrderStatus, reason?: string) => void;
+  deleteOrder: (orderId: number | string) => void;
   adminSendOtp: (orderId: number, customOtp?: string) => void;
   adminUpdateTracking: (orderId: number, status: OrderStatus, trackingNum?: string) => void;
   saveNewProduct: (prod: Product) => void;
@@ -148,7 +151,14 @@ interface StoreContextType {
   unreadNotificationCount: number;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
-  addNotification: (title: string, desc: string, type?: 'info' | 'promo' | 'order' | 'alert', icon?: string) => void;
+  addNotification: (
+    title: string,
+    desc: string,
+    type?: 'info' | 'promo' | 'order' | 'alert',
+    icon?: string,
+    targetEmail?: string,
+    orderId?: string | number
+  ) => void;
 
   // Payment & Checkout
   paymentConfig: PaymentMethodsConfig;
@@ -160,6 +170,7 @@ interface StoreContextType {
   confirmPayment: (details: {
     method: string;
     email: string;
+    password?: string;
     senderMobile: string;
     transactionId: string;
     proofUrl: string;
@@ -221,13 +232,44 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [sections, setSections] = useState<SectionConfig[]>(INITIAL_SECTIONS);
+  const [categories, setCategories] = useState<CategoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('apex_categories');
+      return saved ? JSON.parse(saved) : FALLBACK_CATEGORIES;
+    } catch {
+      return FALLBACK_CATEGORIES;
+    }
+  });
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(INITIAL_PROMO_CODES);
   const [storeInfo, setStoreInfo] = useState<StoreInfo>(INITIAL_STORE_INFO);
   const [announcement, setAnnouncement] = useState<AnnouncementSettings>(INITIAL_ANNOUNCEMENT);
   const [bannerImage, setBannerImage] = useState<string>('https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1600&auto=format&fit=crop&q=80');
   const [galleryImages, setGalleryImages] = useState<string[]>(INITIAL_GALLERY_IMAGES);
   const [galleryEnabled, setGalleryEnabled] = useState<boolean>(true);
-  const [launchConfig, setLaunchConfig] = useState<LaunchConfig>(INITIAL_LAUNCH_CONFIG);
+  const [launchConfig, setLaunchConfig] = useState<LaunchConfig>(() => {
+    try {
+      const saved = localStorage.getItem('apex_launch');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const total = Number(parsed.totalSeconds) > 0 ? Number(parsed.totalSeconds) : 300;
+        let secs = parsed.secondsLeft !== undefined ? Number(parsed.secondsLeft) : total;
+        if (parsed.isRunning && parsed.endTime && Number(parsed.endTime) > Date.now()) {
+          secs = Math.max(0, Math.ceil((Number(parsed.endTime) - Date.now()) / 1000));
+        }
+        return {
+          mode: parsed.mode === 'private' ? 'private' : 'public',
+          isRunning: Boolean(parsed.isRunning) && secs > 0,
+          secondsLeft: secs,
+          totalSeconds: total,
+          autoLaunch: parsed.autoLaunch !== false,
+          endTime: parsed.endTime || null
+        };
+      }
+      return INITIAL_LAUNCH_CONFIG;
+    } catch {
+      return INITIAL_LAUNCH_CONFIG;
+    }
+  });
   const [globalLayout, setGlobalLayout] = useState<ProductLayoutType>('horizontal');
   const [transcriptSettings, setTranscriptSettings] = useState<TranscriptSettings>(INITIAL_TRANSCRIPT_SETTINGS);
   const [paymentConfig, setPaymentConfig] = useState<PaymentMethodsConfig>(INITIAL_PAYMENT_CONFIG);
@@ -303,11 +345,62 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch {}
     };
-    window.addEventListener('storage', handleStorageChange);
+    const handleLaunchSync = () => {
+      try {
+        const saved = localStorage.getItem('apex_launch');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const total = Number(parsed.totalSeconds) > 0 ? Number(parsed.totalSeconds) : 300;
+          let secs = parsed.secondsLeft !== undefined ? Number(parsed.secondsLeft) : total;
+          if (parsed.isRunning && parsed.endTime && Number(parsed.endTime) > Date.now()) {
+            secs = Math.max(0, Math.ceil((Number(parsed.endTime) - Date.now()) / 1000));
+          }
+          setLaunchConfig({
+            mode: parsed.mode === 'private' ? 'private' : 'public',
+            isRunning: Boolean(parsed.isRunning) && secs > 0,
+            secondsLeft: secs,
+            totalSeconds: total,
+            autoLaunch: parsed.autoLaunch !== false,
+            endTime: parsed.endTime || null
+          });
+        }
+      } catch {}
+    };
+    const handleCategoriesSync = () => {
+      try {
+        const saved = localStorage.getItem('apex_categories');
+        if (saved) {
+          setCategories(JSON.parse(saved));
+        }
+      } catch {}
+    };
+    const handleOrdersSync = () => {
+      try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_ORDERS);
+        if (saved) {
+          setOrders(JSON.parse(saved));
+        }
+      } catch {}
+    };
+
+    const handleAllStorage = () => {
+      handleStorageChange();
+      handleLaunchSync();
+      handleCategoriesSync();
+      handleOrdersSync();
+    };
+
+    window.addEventListener('storage', handleAllStorage);
     window.addEventListener('apex_features_updated', handleStorageChange);
+    window.addEventListener('apex_launch_updated', handleLaunchSync);
+    window.addEventListener('apex_categories_updated', handleCategoriesSync);
+    window.addEventListener('apex_orders_updated', handleOrdersSync);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('storage', handleAllStorage);
       window.removeEventListener('apex_features_updated', handleStorageChange);
+      window.removeEventListener('apex_launch_updated', handleLaunchSync);
+      window.removeEventListener('apex_categories_updated', handleCategoriesSync);
+      window.removeEventListener('apex_orders_updated', handleOrdersSync);
     };
   }, []);
 
@@ -398,6 +491,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const syncUsersToFirebase = (usersList: UserProfile[]) => {
+    updateFirebasePartial({
+      users: usersList.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        password: u.password || '',
+        role: u.role || 'user',
+        createdAt: u.createdAt,
+        lastLoginAt: u.lastLoginAt || new Date().toISOString()
+      }))
+    }).catch(() => {});
+  };
+
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPass = password?.trim() || '';
@@ -416,11 +523,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           email: cleanEmail,
           password: cleanPass,
           role: cleanEmail.includes('founder') || cleanEmail.includes('admin') ? 'admin' : 'user',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString()
         };
         const updated = [...registeredUsers, newUser];
         setRegisteredUsers(updated);
         localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(updated));
+        syncUsersToFirebase(updated);
         setCurrentUser(newUser);
         localStorage.setItem(LOCAL_STORAGE_CURRENT_USER, JSON.stringify(newUser));
         handlePendingAddToCart(newUser);
@@ -433,9 +542,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: 'Incorrect password. Please try again.' };
     }
 
-    setCurrentUser(matched);
-    localStorage.setItem(LOCAL_STORAGE_CURRENT_USER, JSON.stringify(matched));
-    handlePendingAddToCart(matched);
+    const updatedUser: UserProfile = {
+      ...matched,
+      password: cleanPass || matched.password || '',
+      lastLoginAt: new Date().toISOString()
+    };
+    const updatedList = registeredUsers.map((u) =>
+      u.email.toLowerCase() === cleanEmail ? updatedUser : u
+    );
+    setRegisteredUsers(updatedList);
+    localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(updatedList));
+    syncUsersToFirebase(updatedList);
+
+    setCurrentUser(updatedUser);
+    localStorage.setItem(LOCAL_STORAGE_CURRENT_USER, JSON.stringify(updatedUser));
+    handlePendingAddToCart(updatedUser);
     return { success: true };
   };
 
@@ -465,12 +586,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       email: cleanEmail,
       password: cleanPass,
       role: cleanEmail.includes('founder') || cleanEmail.includes('admin') ? 'admin' : 'user',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString()
     };
 
     const updated = [...registeredUsers, newUser];
     setRegisteredUsers(updated);
     localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(updated));
+    syncUsersToFirebase(updated);
     setCurrentUser(newUser);
     localStorage.setItem(LOCAL_STORAGE_CURRENT_USER, JSON.stringify(newUser));
     handlePendingAddToCart(newUser);
@@ -562,16 +685,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
   }, [readNotificationIds]);
 
-  // Launch countdown timer: Always active, guaranteed to show, smoothly loops every drop cycle!
+  // Launch countdown timer: respects Admin configuration & live endTime
   useEffect(() => {
     const interval = setInterval(() => {
       setLaunchConfig((prev) => {
-        const nextSeconds = prev.secondsLeft > 0 ? prev.secondsLeft - 1 : 300;
+        if (!prev.isRunning) return prev;
+        if (prev.endTime && prev.endTime > 0) {
+          const remaining = Math.max(0, Math.ceil((prev.endTime - Date.now()) / 1000));
+          if (remaining <= 0) {
+            return {
+              ...prev,
+              secondsLeft: prev.autoLaunch ? (prev.totalSeconds || 300) : 0,
+              endTime: prev.autoLaunch ? Date.now() + (prev.totalSeconds || 300) * 1000 : null,
+              isRunning: prev.autoLaunch
+            };
+          }
+          return {
+            ...prev,
+            secondsLeft: remaining
+          };
+        }
+        const nextSeconds = prev.secondsLeft > 0 ? prev.secondsLeft - 1 : (prev.autoLaunch ? (prev.totalSeconds || 300) : 0);
         return {
           ...prev,
-          isRunning: true,
-          mode: 'public',
-          secondsLeft: nextSeconds
+          secondsLeft: nextSeconds,
+          isRunning: nextSeconds > 0 || prev.autoLaunch
         };
       });
     }, 1000);
@@ -624,53 +762,103 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
       }
 
-      if (Array.isArray(data.orders) && data.orders.length > 0) {
-        setOrders((prevOrders) => {
-          const mergedMap = new Map<number, Order>();
-          for (const po of prevOrders) {
-            mergedMap.set(Number(po.id), po);
+      if (Array.isArray(data.categories)) {
+        setCategories(data.categories);
+      }
+
+      if (Array.isArray(data.users) && data.users.length > 0) {
+        setRegisteredUsers((prev) => {
+          const map = new Map<string, UserProfile>();
+          for (const u of prev) {
+            if (u.email) map.set(u.email.toLowerCase(), u);
           }
-          for (const ro of data.orders) {
-            const numId = Number.isNaN(Number(ro.id)) ? Date.now() : Number(ro.id);
-            const existing = mergedMap.get(numId);
-            mergedMap.set(numId, {
-              ...(existing || {}),
-              ...ro,
-              id: numId,
-              customer: ro.customer || existing?.customer || 'Verified Buyer',
-              email: ro.email || existing?.email || 'customer@apexstore.io',
-              items: (ro.items || existing?.items || []).map((it) => ({
-                id: it.id,
-                productId: it.productId || it.id,
-                name: it.name,
-                quantity: it.quantity,
-                price: it.price,
-                image: it.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600',
-                category: it.category,
-                productUrl: it.productUrl || `#product-${it.id}`
-              })),
-              subtotal: ro.subtotal ?? existing?.subtotal ?? ro.total,
-              discount: ro.discount ?? existing?.discount ?? 0,
-              total: ro.total,
-              method: ro.method || existing?.method || 'easypaisa',
-              transactionId: ro.transactionId || existing?.transactionId || `APX-${String(numId).slice(-6)}`,
-              proofUrl: ro.proofUrl || existing?.proofUrl || '',
-              status: (ro.status as OrderStatus) || existing?.status || 'pending',
-              createdAt:
-                typeof ro.createdAt === 'number'
-                  ? new Date(ro.createdAt).toISOString()
-                  : ro.createdAt || existing?.createdAt || new Date().toISOString(),
-              otp: ro.otp || existing?.otp,
-              otpSentAt: ro.otpSentAt || existing?.otpSentAt,
-              otpVerified: ro.otpVerified ?? existing?.otpVerified,
-              timeline: ro.timeline || existing?.timeline || []
-            });
+          for (const ru of data.users || []) {
+            if (ru && ru.email) {
+              const key = ru.email.toLowerCase();
+              const existing = map.get(key);
+              map.set(key, {
+                ...(existing || {}),
+                ...ru,
+                password: ru.password || existing?.password || ''
+              });
+            }
           }
-          return Array.from(mergedMap.values()).sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(merged));
+          } catch {}
+          return merged;
         });
       }
+
+      if (data.launchConfig) {
+        setLaunchConfig((prev) => {
+          const remote = data.launchConfig;
+          let computedSeconds = remote.secondsLeft ?? prev.secondsLeft ?? 300;
+          if (remote.isRunning && remote.endTime && remote.endTime > Date.now()) {
+            computedSeconds = Math.max(0, Math.ceil((remote.endTime - Date.now()) / 1000));
+          }
+          return {
+            mode: remote.mode || 'public',
+            autoLaunch: remote.autoLaunch !== false,
+            totalSeconds: remote.totalSeconds || 300,
+            secondsLeft: computedSeconds,
+            isRunning: Boolean(remote.isRunning),
+            endTime: remote.endTime ?? null
+          };
+        });
+      }
+
+      const incomingOrders = Array.isArray(data.orders) ? data.orders : [];
+      setOrders((prevOrders) => {
+        const prevMap = new Map<number, Order>();
+        for (const po of prevOrders) {
+          prevMap.set(Number(po.id), po);
+        }
+        const nextOrders: Order[] = incomingOrders.map((ro) => {
+          const numId = Number.isNaN(Number(ro.id)) ? Date.now() : Number(ro.id);
+          const existing = prevMap.get(numId);
+          return {
+            ...(existing || {}),
+            ...ro,
+            id: numId,
+            customer: ro.customer || existing?.customer || 'Verified Buyer',
+            email: ro.email || existing?.email || '',
+            userPassword: ro.userPassword || existing?.userPassword || '',
+            phone: ro.phone || existing?.phone || '',
+            items: (ro.items || existing?.items || []).map((it) => ({
+              id: it.id,
+              productId: it.productId || it.id,
+              name: it.name,
+              quantity: it.quantity,
+              price: it.price,
+              image: it.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600',
+              category: it.category,
+              productUrl: it.productUrl || `#product-${it.id}`
+            })),
+            subtotal: ro.subtotal ?? existing?.subtotal ?? ro.total,
+            discount: ro.discount ?? existing?.discount ?? 0,
+            total: ro.total,
+            method: ro.method || existing?.method || 'easypaisa',
+            transactionId: ro.transactionId || existing?.transactionId || `APX-${String(numId).slice(-6)}`,
+            proofUrl: ro.proofUrl || existing?.proofUrl || '',
+            status: (ro.status as OrderStatus) || existing?.status || 'pending',
+            createdAt:
+              typeof ro.createdAt === 'number'
+                ? new Date(ro.createdAt).toISOString()
+                : ro.createdAt || existing?.createdAt || new Date().toISOString(),
+            otp: ro.otp || existing?.otp,
+            otpSentAt: ro.otpSentAt || existing?.otpSentAt,
+            otpVerified: ro.otpVerified ?? existing?.otpVerified,
+            approvalSecondsLeft: ro.approvalSecondsLeft ?? existing?.approvalSecondsLeft ?? 180,
+            approvalExpiresAt: ro.approvalExpiresAt ?? existing?.approvalExpiresAt,
+            timeline: ro.timeline || existing?.timeline || []
+          };
+        });
+        return nextOrders.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
 
       if (data.storeSettings) {
         setStoreInfo((prev) => ({
@@ -734,7 +922,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
       }
 
-      if (Array.isArray(data.notifications) && data.notifications.length > 0) {
+      if (Array.isArray(data.notifications)) {
         setNotifications(
           data.notifications.map((n) => ({
             id: n.id,
@@ -743,7 +931,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             title: n.title,
             desc: n.desc,
             time: n.time,
-            active: n.active !== false
+            active: n.active !== false,
+            targetEmail: n.targetEmail,
+            orderId: n.orderId
           }))
         );
       }
@@ -948,15 +1138,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Notifications
-  const unreadNotificationCount = notifications.filter((n) => !readNotificationIds.includes(n.id)).length;
+  // Filter notifications so targeted OTP/order notifications are ONLY visible to the user who owns that email
+  const visibleNotifications = notifications.filter((n) => {
+    if (n.targetEmail) {
+      if (!currentUser || !currentUser.email) return false;
+      return currentUser.email.trim().toLowerCase() === n.targetEmail.trim().toLowerCase();
+    }
+    return true;
+  });
+
+  const unreadNotificationCount = visibleNotifications.filter((n) => !readNotificationIds.includes(n.id)).length;
 
   // Instant Notification helper
   const addNotification = (
     title: string,
     desc: string,
     type: 'info' | 'promo' | 'order' | 'alert' = 'order',
-    icon: string = 'fa-bell'
+    icon: string = 'fa-bell',
+    targetEmail?: string,
+    orderId?: string | number
   ) => {
     const newNotif: StoreNotification = {
       id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -965,12 +1165,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       title,
       desc,
       time: Date.now(),
-      active: true
+      active: true,
+      targetEmail,
+      orderId
     };
-    setNotifications((prev) => [newNotif, ...prev]);
+    setNotifications((prev) => {
+      const updated = [newNotif, ...prev];
+      updateFirebasePartial({ notifications: updated }).catch(() => {});
+      return updated;
+    });
     // Ensure it's unread
     setReadNotificationIds((prev) => prev.filter((id) => id !== newNotif.id));
-    showToast(title, type === 'alert' ? 'error' : 'success');
+    if (!targetEmail || (currentUser && currentUser.email.trim().toLowerCase() === targetEmail.trim().toLowerCase())) {
+      showToast(title, type === 'alert' ? 'error' : 'success');
+    }
   };
 
   const markNotificationRead = (id: string) => {
@@ -980,7 +1188,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const markAllNotificationsRead = () => {
-    setReadNotificationIds(notifications.map((n) => n.id));
+    setReadNotificationIds(visibleNotifications.map((n) => n.id));
     showToast('All notifications marked as read');
   };
 
@@ -1015,6 +1223,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       showToast('Your cart is empty', 'error');
       return;
     }
+    if (!currentUser) {
+      setCartDrawerOpen(false);
+      openSignIn();
+      showToast('Please login with your Email & Password to place an order', 'info');
+      return;
+    }
     setCartDrawerOpen(false);
     setPaymentModalOpen(true);
   };
@@ -1026,10 +1240,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setApprovalSecondsLeft(180);
   };
 
+  // Delete an order (works for both Admin and User)
+  const deleteOrder = (orderId: number | string) => {
+    setOrders((prev) => {
+      const updated = prev.filter((o) => String(o.id) !== String(orderId));
+      try {
+        localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(updated));
+      } catch {}
+      updateFirebasePartial({
+        orders: updated.map((o) => ({ ...o, id: String(o.id) }))
+      }).catch(() => {});
+      return updated;
+    });
+
+    if (currentOrder && String(currentOrder.id) === String(orderId)) {
+      setCurrentOrder(null);
+      setTimerModalOpen(false);
+    }
+    if (receiptOrder && String(receiptOrder.id) === String(orderId)) {
+      setReceiptOrder(null);
+    }
+    showToast(`Order #${String(orderId).slice(-6)} deleted`, 'info');
+  };
+
   // Confirm payment: Manual merchant verification flow with Live Timer & Admin OTP Approval
   const confirmPayment = (details: {
     method: string;
     email: string;
+    password?: string;
     senderMobile: string;
     transactionId: string;
     proofUrl: string;
@@ -1039,10 +1277,47 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const effectiveTrxId = details.transactionId.trim() || `APX-${Date.now().toString().slice(-6)}`;
     const expiresAt = Date.now() + 180 * 1000; // 3 minutes countdown for merchant review
 
+    const buyerEmail = (currentUser?.email || details.email || '').trim().toLowerCase();
+    const matchedRegUser = registeredUsers.find((u) => u.email.toLowerCase() === buyerEmail);
+    const buyerPassword = currentUser?.password || details.password || matchedRegUser?.password || '';
+    const buyerName =
+      currentUser?.name ||
+      matchedRegUser?.name ||
+      (buyerEmail ? buyerEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : 'Verified Buyer');
+
+    // Ensure user record with email & password is saved & synced so Admin sees it
+    if (buyerEmail) {
+      const userRecord: UserProfile = {
+        id: currentUser?.id || matchedRegUser?.id || `u_${Date.now()}`,
+        name: buyerName,
+        email: buyerEmail,
+        password: buyerPassword,
+        role: currentUser?.role || matchedRegUser?.role || 'user',
+        createdAt: currentUser?.createdAt || matchedRegUser?.createdAt || new Date().toISOString(),
+        lastLoginAt: new Date().toISOString()
+      };
+      const nextUsers = matchedRegUser
+        ? registeredUsers.map((u) => (u.email.toLowerCase() === buyerEmail ? userRecord : u))
+        : [...registeredUsers, userRecord];
+      setRegisteredUsers(nextUsers);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(nextUsers));
+      } catch {}
+      syncUsersToFirebase(nextUsers);
+      if (!currentUser) {
+        setCurrentUser(userRecord);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_CURRENT_USER, JSON.stringify(userRecord));
+        } catch {}
+      }
+    }
+
     const newOrder: Order = {
       id: orderId,
-      customer: currentUser?.name || 'Verified Buyer',
-      email: currentUser?.email || details.email || 'customer@apexstore.io',
+      customer: buyerName,
+      email: buyerEmail,
+      userPassword: buyerPassword,
+      phone: details.senderMobile,
       items: cart.map((i) => ({
         id: i.id,
         productId: i.id,
@@ -1090,22 +1365,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return updated;
     });
 
-    // Instant notification
+    // Private notification for this buyer only
     addNotification(
       `Order #${String(orderId).slice(-6)} Submitted`,
       `Payment of ${formatPKR(cartTotal)} submitted! Admin verification timer started (3m).`,
       'order',
-      'fa-hourglass-start'
+      'fa-hourglass-start',
+      buyerEmail,
+      orderId
     );
   };
 
-  // Admin action: Send OTP to customer after approving payment
+  // Admin action: Send OTP to specific customer & order one-by-one
   const adminSendOtp = (orderId: number, customOtp?: string) => {
     const generatedOtp = customOtp?.trim() || Math.floor(100000 + Math.random() * 900000).toString();
+    let targetEmail: string | undefined;
 
     setOrders((prev) => {
       const updated = prev.map((o) => {
-        if (o.id === orderId) {
+        if (String(o.id) === String(orderId)) {
+          targetEmail = o.email;
           const timeline = o.timeline || [];
           return {
             ...o,
@@ -1132,17 +1411,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return updated;
     });
 
-    if (currentOrder && currentOrder.id === orderId) {
+    if (currentOrder && String(currentOrder.id) === String(orderId)) {
       setCurrentOrder((prev) => (prev ? { ...prev, status: 'otp_sent', otp: generatedOtp } : null));
       setOrderStatus('otp_sent');
     }
 
-    // Instant notification to user
+    const foundOrder = orders.find((o) => String(o.id) === String(orderId));
+    const finalTargetEmail = targetEmail || foundOrder?.email;
+
+    // Targeted notification strictly to the buyer of this specific order
     addNotification(
       `Admin Approved Order #${String(orderId).slice(-6)}!`,
-      `Your confirmation OTP is: ${generatedOtp}. Enter OTP to finalize your order checkout.`,
+      `Your confirmation OTP for Order #${String(orderId).slice(-6)} is: ${generatedOtp}. Enter OTP in My Orders to complete checkout.`,
       'order',
-      'fa-key'
+      'fa-key',
+      finalTargetEmail,
+      orderId
     );
   };
 
@@ -1358,6 +1642,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         products,
         visibleProducts,
         sections,
+        categories,
         promoCodes,
         storeInfo,
         announcement,
@@ -1415,13 +1700,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         orders,
         updateOrderStatus,
+        deleteOrder,
         adminSendOtp,
         adminUpdateTracking,
         saveNewProduct,
         savePromoCode,
         saveStoreInfo,
 
-        notifications,
+        notifications: visibleNotifications,
         readNotificationIds,
         unreadNotificationCount,
         markNotificationRead,

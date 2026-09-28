@@ -648,3 +648,172 @@ img {
   color: #6b21a8 !important;
   box-shadow: 0 2px 6px rgba(147, 51, 234, 0.15);
 }
+
+/* Global Icon Alignment & Sizing Fixes */
+i.fa-solid,
+i.fa-regular,
+i.fa-brands {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* Admin Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background-color: #27273a;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 9999px;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.toggle-slider::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #cbd5e1;
+  border-radius: 50%;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #9333ea, #c026d3);
+  border-color: #c084fc;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+  background-color: #ffffff;
+}
+
+/* Admin Section Cards & Mini Previews */
+.section-card {
+  background-color: var(--admin-surface, #13131a);
+  border: 1px solid var(--admin-border, rgba(147, 51, 234, 0.32));
+  border-radius: 18px;
+  padding: 18px;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.section-card:hover {
+  border-color: rgba(168, 85, 247, 0.65);
+  box-shadow: 0 10px 25px -8px rgba(124, 58, 237, 0.35);
+}
+.drag-handle {
+  color: #a855f7;
+  cursor: grab;
+}
+.section-preview {
+  background-color: rgba(10, 10, 15, 0.65);
+  border: 1px solid rgba(147, 51, 234, 0.22);
+  border-radius: 12px;
+  padding: 8px;
+}
+.mini-card {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+.status-badge.status-active {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  padding: 4px 10px;
+}
+.status-badge.status-inactive {
+  background: rgba(148, 163, 184, 0.14);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  padding: 4px 10px;
+}
+
+/* Launch Control Timer Ring & Mode Buttons */
+.timer-ring {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.timer-ring svg {
+  transform: rotate(-90deg);
+}
+.timer-ring circle.bg {
+  fill: none;
+  stroke: rgba(147, 51, 234, 0.18);
+  stroke-width: 10;
+}
+.timer-ring circle.progress {
+  fill: none;
+  stroke: url(#timerGrad);
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+.timer-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.timer-display {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--admin-text, #ffffff);
+  letter-spacing: 0.05em;
+}
+
+.mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  border: 1px solid var(--admin-border, rgba(147, 51, 234, 0.32));
+  background: rgba(10, 10, 15, 0.6);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.mode-btn.public.active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.35), rgba(79, 70, 229, 0.35));
+  border-color: #a855f7;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(147, 51, 234, 0.35);
+}
+.mode-btn.private.active {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.35), rgba(190, 18, 60, 0.35));
+  border-color: #f43f5e;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
+}

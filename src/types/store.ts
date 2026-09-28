@@ -36,6 +36,24 @@ export interface Promo {
   active: boolean;
 }
 
+export interface CategoryItem {
+  id: string | number;
+  name: string;
+  filter: string;
+  image: string;
+  icon?: string;
+}
+
+export interface RegisteredUserRecord {
+  id: string;
+  name: string;
+  email: string;
+  password?: string;
+  role?: 'user' | 'admin';
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
 export interface OrderItem {
   id?: number;
   productId?: number;
@@ -51,6 +69,7 @@ export interface Order {
   id: string;
   customer?: string;
   email?: string;
+  userPassword?: string;
   phone?: string;
   address?: string;
   method?: string;
@@ -93,6 +112,7 @@ export interface LaunchConfig {
   totalSeconds: number;
   secondsLeft: number;
   isRunning: boolean;
+  endTime?: number | null;
 }
 
 export interface LaunchPoolProduct {
@@ -137,6 +157,8 @@ export interface NotificationItem {
   time: number;
   active: boolean;
   sender?: string;
+  targetEmail?: string;
+  orderId?: string | number;
 }
 
 export interface TranscriptSettings {
@@ -172,6 +194,8 @@ export interface StoreState {
   promos: Promo[];
   orders: Order[];
   sections: Section[];
+  categories?: CategoryItem[];
+  users?: RegisteredUserRecord[];
   gallery: string[];
   galleryEnabled: boolean;
   bannerImage?: string | null;
