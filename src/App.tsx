@@ -36,11 +36,7 @@ import { ContactView } from './components/Views/ContactView';
 import { AboutView } from './components/Views/AboutView';
 import { OrdersView } from './components/Views/OrdersView';
 
-interface StorefrontLayoutProps {
-  onOpenAdmin: () => void;
-}
-
-const StorefrontLayout: React.FC<StorefrontLayoutProps> = ({ onOpenAdmin }) => {
+const StorefrontLayout: React.FC = () => {
   const { currentView, featureToggles } = useStore();
 
   return (
@@ -115,80 +111,78 @@ const StorefrontLayout: React.FC<StorefrontLayoutProps> = ({ onOpenAdmin }) => {
   );
 };
 
+function resolveModeFromUrl(): 'storefront' | 'admin' {
+  if (typeof window === 'undefined') return 'storefront';
+  const pathname = window.location.pathname.toLowerCase();
+  const hash = window.location.hash.toLowerCase();
+  const urlParams = new URLSearchParams(window.location.search);
+  const viewParam = (urlParams.get('view') || urlParams.get('mode') || '').toLowerCase();
+
+  if (
+    pathname.endsWith('/admin') ||
+    pathname.endsWith('/poweradmin') ||
+    pathname.endsWith('/power-admin') ||
+    viewParam === 'admin' ||
+    viewParam === 'poweradmin' ||
+    urlParams.has('admin') ||
+    urlParams.has('poweradmin') ||
+    hash === '#admin' ||
+    hash === '#poweradmin'
+  ) {
+    return 'admin';
+  }
+  return 'storefront';
+}
+
 export default function App() {
-  const [appMode, setAppMode] = useState<'storefront' | 'admin'>(() => {
-    // Check URL query param or hash for direct deep-linking
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('view') === 'admin' || urlParams.get('mode') === 'admin' || window.location.hash === '#admin') {
-        return 'admin';
-      }
-      const savedMode = localStorage.getItem('apex_active_app_mode');
-      if (savedMode === 'admin') return 'admin';
-    }
-    return 'storefront';
-  });
+  const [appMode, setAppMode] = useState<'storefront' | 'admin'>(resolveModeFromUrl);
 
   const handleSwitchMode = (mode: 'storefront' | 'admin') => {
     setAppMode(mode);
     try {
-      localStorage.setItem('apex_active_app_mode', mode);
       const url = new URL(window.location.href);
-      url.searchParams.set('view', mode);
-      window.history.replaceState({}, '', url.toString());
+      if (mode === 'admin') {
+        url.searchParams.set('view', 'admin');
+      } else {
+        url.pathname = '/';
+        url.searchParams.delete('view');
+        url.searchParams.delete('mode');
+        url.searchParams.delete('admin');
+        url.searchParams.delete('poweradmin');
+        url.hash = '';
+      }
+      window.history.pushState({}, '', url.toString());
     } catch {
       // ignore
     }
   };
 
   useEffect(() => {
+    const syncFromUrl = () => setAppMode(resolveModeFromUrl());
     const onCustomSwitch = (e: Event) => {
       const custom = e as CustomEvent<'storefront' | 'admin'>;
       if (custom.detail === 'admin' || custom.detail === 'storefront') {
         handleSwitchMode(custom.detail);
       }
     };
+    window.addEventListener('popstate', syncFromUrl);
+    window.addEventListener('hashchange', syncFromUrl);
     window.addEventListener('apex_switch_mode', onCustomSwitch);
-    return () => window.removeEventListener('apex_switch_mode', onCustomSwitch);
+    return () => {
+      window.removeEventListener('popstate', syncFromUrl);
+      window.removeEventListener('hashchange', syncFromUrl);
+      window.removeEventListener('apex_switch_mode', onCustomSwitch);
+    };
   }, []);
 
   return (
     <StoreProvider>
       <div className="relative min-h-screen">
-        {/* Standalone Active Mode View */}
         {appMode === 'admin' ? (
           <AdminDashboard onSwitchToStorefront={() => handleSwitchMode('storefront')} />
         ) : (
-          <StorefrontLayout onOpenAdmin={() => handleSwitchMode('admin')} />
+          <StorefrontLayout />
         )}
-
-        {/* Floating Quick Mode Switcher Dock matching Storefront theme */}
-        <div className="fixed bottom-4 left-4 z-50 flex items-center bg-[#13131a]/95 backdrop-blur-md p-1.5 rounded-full border border-purple-500/50 shadow-2xl shadow-purple-950/80 text-xs font-bold">
-          <button
-            onClick={() => handleSwitchMode('storefront')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-              appMode === 'storefront'
-                ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-md shadow-purple-900/50'
-                : 'text-purple-300/70 hover:text-white'
-            }`}
-          >
-            <i className="fa-solid fa-store text-xs" />
-            <span>Storefront</span>
-          </button>
-
-          <button
-            onClick={() => handleSwitchMode('admin')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-              appMode === 'admin'
-                ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 text-white shadow-md shadow-purple-900/50'
-                : 'text-purple-300/70 hover:text-white'
-            }`}
-          >
-            <i className="fa-solid fa-sliders text-xs" />
-            <span>Power Admin</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
-          </button>
-        </div>
       </div>
     </StoreProvider>
   );
