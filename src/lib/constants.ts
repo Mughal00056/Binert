@@ -1,4 +1,27 @@
-import { Product, Promo, Section, CategoryItem, StoreState } from '../types/store';
+import { Product, Promo, Section, CategoryItem, StoreState, NotificationItem } from '../types/store';
+
+export const FALLBACK_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: "notif-1",
+    type: "promo",
+    icon: "fa-bolt",
+    title: "🔥 Flash Weekend Launch",
+    desc: "Get ready for the biggest electronic drops this weekend with instant delivery across Pakistan!",
+    time: Date.now() - 1000 * 60 * 45,
+    active: true,
+    sender: "Admin"
+  },
+  {
+    id: "notif-2",
+    type: "order",
+    icon: "fa-truck-fast",
+    title: "🚚 Free Nationwide Shipping",
+    desc: "Orders over Rs. 5,000 now qualify for zero delivery charges this month.",
+    time: Date.now() - 1000 * 60 * 180,
+    active: true,
+    sender: "System"
+  }
+];
 
 export const FALLBACK_CATEGORIES: CategoryItem[] = [
   {
