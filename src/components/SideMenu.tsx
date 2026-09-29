@@ -255,12 +255,27 @@ export const SideMenu: React.FC = () => {
               href={storeInfo.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-green-400 hover:bg-green-950/20 transition text-left"
+              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-green-400 hover:bg-green-950/20 transition text-left border-b border-purple-950/40"
             >
               <i className="fa-brands fa-whatsapp w-5 text-center text-green-400 text-lg" />
               <span>WhatsApp Channel</span>
             </a>
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setSideMenuOpen(false);
+              window.dispatchEvent(new CustomEvent('apex_switch_mode', { detail: 'admin' }));
+            }}
+            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-black text-purple-200 hover:bg-purple-900/40 hover:text-white transition text-left cursor-pointer"
+          >
+            <i className="fa-solid fa-sliders w-5 text-center text-purple-400" />
+            <span>Admin Panel</span>
+            <span className="ml-auto px-2 py-0.5 rounded-full bg-purple-900/70 border border-purple-600/40 text-[9px] font-black uppercase text-purple-200">
+              Open
+            </span>
+          </button>
         </div>
 
         {/* Footer */}

@@ -150,6 +150,19 @@ export const Header: React.FC = () => {
               </button>
             )}
 
+            {/* Direct Admin Panel Button */}
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('apex_switch_mode', { detail: 'admin' }));
+              }}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/70 text-purple-200 hover:text-white border border-purple-700/50 hover:border-purple-400 text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-sm"
+              title="Open Admin Panel"
+            >
+              <i className="fa-solid fa-sliders text-purple-400 text-xs" />
+              <span className="hidden md:inline">Admin</span>
+            </button>
+
             {/* User Auth: Sign In / Account Dropdown */}
             <div className="relative" ref={dropdownRef}>
               {currentUser ? (
@@ -249,19 +262,17 @@ export const Header: React.FC = () => {
                       </span>
                     </button>
 
-                    {/* Admin Switch if role admin */}
-                    {currentUser.role === 'admin' && (
-                      <button
-                        onClick={() => {
-                          setUserDropdownOpen(false);
-                          setAdminModalOpen(true);
-                        }}
-                        className="w-full px-4 py-2.5 text-xs font-bold text-amber-300 hover:bg-purple-900/30 hover:text-amber-200 flex items-center gap-2 transition cursor-pointer"
-                      >
-                        <i className="fa-solid fa-crown text-amber-400 text-xs" />
-                        <span>Admin Console</span>
-                      </button>
-                    )}
+                    {/* Admin Switch */}
+                    <button
+                      onClick={() => {
+                        setUserDropdownOpen(false);
+                        window.dispatchEvent(new CustomEvent('apex_switch_mode', { detail: 'admin' }));
+                      }}
+                      className="w-full px-4 py-2.5 text-xs font-bold text-amber-300 hover:bg-purple-900/30 hover:text-amber-200 flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <i className="fa-solid fa-crown text-amber-400 text-xs" />
+                      <span>Open Admin Panel</span>
+                    </button>
 
                     {/* Sign Out */}
                     <button

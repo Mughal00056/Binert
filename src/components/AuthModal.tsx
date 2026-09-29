@@ -401,18 +401,33 @@ export const AuthModal: React.FC = () => {
           )}
 
           {/* Bottom Switch prompt */}
-          <div className="text-center pt-2">
+          <div className="text-center pt-2 space-y-2.5">
             {authModalMode === 'signin' ? (
-              <p className="text-xs text-purple-300/80">
-                Don't have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => switchMode('signup')}
-                  className="font-black text-purple-300 hover:text-white underline cursor-pointer"
-                >
-                  Create one now
-                </button>
-              </p>
+              <>
+                <p className="text-xs text-purple-300/80">
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => switchMode('signup')}
+                    className="font-black text-purple-300 hover:text-white underline cursor-pointer"
+                  >
+                    Create one now
+                  </button>
+                </p>
+                <div className="pt-2 border-t border-purple-900/30">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleClose();
+                      window.dispatchEvent(new CustomEvent('apex_switch_mode', { detail: 'admin' }));
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 text-purple-200 hover:text-white border border-purple-700/50 text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <i className="fa-solid fa-sliders text-purple-400 text-xs" />
+                    <span>Open Admin Panel</span>
+                  </button>
+                </div>
+              </>
             ) : (
               <p className="text-xs text-purple-300/80">
                 Already registered?{' '}

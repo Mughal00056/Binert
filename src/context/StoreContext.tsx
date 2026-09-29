@@ -216,6 +216,21 @@ const LOCAL_STORAGE_REVIEWS = 'apex_product_reviews';
 const LOCAL_STORAGE_PRODUCTS = 'apex_products_catalog';
 const LOCAL_STORAGE_CURRENT_USER = 'apex_current_user';
 const LOCAL_STORAGE_USERS = 'apex_registered_users';
+const LOCAL_STORAGE_DELETED_USERS = 'apex_deleted_user_emails';
+
+function isAdminEmail(email?: string): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return (
+    clean === 'founderofapexstore@gmail.com' ||
+    clean === 'aneesabid0012@gmail.com' ||
+    clean === 'anees@apexstore.com' ||
+    clean === 'admin@apexstore.com' ||
+    clean.includes('founder') ||
+    clean.includes('admin') ||
+    clean.includes('aneesabid')
+  );
+}
 
 function getDeletedEmailsSet(): Set<string> {
   try {
@@ -757,10 +772,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: 'Please enter your email address.' };
     }
 
-    // Check if Admin blocked this user account
+    // Check if Admin blocked this user account (Admin accounts are never blocked)
     const deletedEmails = getDeletedEmailsSet();
     const matched = registeredUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (deletedEmails.has(cleanEmail) || matched?.blocked) {
+    const isAdminRole = isAdminEmail(cleanEmail) || matched?.role === 'admin';
+    if (!isAdminRole && (deletedEmails.has(cleanEmail) || matched?.blocked)) {
       return {
         success: false,
         error: 'This account has been blocked by Admin and cannot sign in.'
@@ -769,8 +785,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (!matched) {
       if (cleanEmail && cleanPass.length >= 4) {
-        const isAdminRole = cleanEmail.includes('founder') || cleanEmail.includes('admin');
-        // New account requires Admin OTP verification before entering store
+        // New account requires Admin OTP verification before entering store (unless Admin)
         const newUser: UserProfile = {
           id: `u_${Date.now()}`,
           name: cleanEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
@@ -799,7 +814,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: 'Incorrect password. Please try again.' };
     }
 
-    const isAdminRole = matched.role === 'admin' || cleanEmail.includes('founder') || cleanEmail.includes('admin');
     const updatedUser: UserProfile = {
       ...matched,
       password: cleanPass || matched.password || '',
@@ -855,17 +869,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
 
     const existingUser = registeredUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+    const isAdminAccount = isAdminEmail(cleanEmail);
     const newUser: UserProfile = {
       id: existingUser?.id || `u_${Date.now()}`,
       name: cleanName,
       email: cleanEmail,
       password: cleanPass,
-      role: 'user',
-      verified: false, // Strictly UNVERIFIED on signup until Admin sends OTP and user verifies!
+      role: isAdminAccount ? 'admin' : 'user',
+      verified: isAdminAccount ? true : false, // Strictly UNVERIFIED on signup for normal users until Admin sends OTP and user verifies!
       blocked: false,
       verificationOtp: undefined,
       verificationOtpSentAt: undefined,
-      verifiedAt: undefined,
+      verifiedAt: isAdminAccount ? new Date().toISOString() : undefined,
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString()
     };

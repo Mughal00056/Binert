@@ -27,7 +27,6 @@ import {
 } from '../lib/firebase';
 import { Sidebar, TabKey } from './components/AdminSidebar';
 import { AdminHeader } from './components/AdminHeader';
-import { AdminTheme, ADMIN_THEMES } from './theme';
 
 // Tabs
 import { DashboardTab } from './components/DashboardTab';
@@ -80,28 +79,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'offline' | 'error'>('saving');
   const [toasts, setToasts] = useState<Toast[]>([]);
-
-  // Admin Theme with persistent selection (defaults to 'cyber' Dark Neon theme)
-  const [adminTheme, setAdminTheme] = useState<AdminTheme>(() => {
-    try {
-      const saved = localStorage.getItem('apex_admin_theme') as AdminTheme | null;
-      if (saved && ['cyber', 'default', 'midnight', 'emerald'].includes(saved)) {
-        return saved;
-      }
-    } catch {}
-    return 'cyber';
-  });
-
-  const handleSelectTheme = (theme: AdminTheme) => {
-    setAdminTheme(theme);
-    try {
-      localStorage.setItem('apex_admin_theme', theme);
-    } catch {
-      // ignore
-    }
-    const found = ADMIN_THEMES.find((t) => t.id === theme);
-    showToast(`Admin theme switched to ${found?.name || theme}!`, 'info');
-  };
 
   // Modals state
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -2068,7 +2045,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   const headerMeta = getTabHeader(currentTab);
 
   return (
-    <div className={`min-h-screen admin-dark-theme admin-theme-${adminTheme} bg-[#0a0a0f] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]`}>
+    <div className="min-h-screen admin-dark-theme bg-[#0a0a0f] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Toast notifications */}
       <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
@@ -2119,8 +2096,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           tabTitle={headerMeta.title}
           tabIcon={headerMeta.icon}
           syncStatus={syncStatus}
-          currentTheme={adminTheme}
-          onSelectTheme={handleSelectTheme}
           onForceSync={handleForceSync}
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           onSwitchToStorefront={onSwitchToStorefront || (() => setStorePreviewModalOpen(true))}

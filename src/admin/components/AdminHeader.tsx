@@ -51,8 +51,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   tabTitle,
   tabIcon,
   syncStatus,
-  currentTheme = 'cyber',
-  onSelectTheme,
   featureToggles,
   onUpdateFeatureToggle,
   onUpdateToggle,
@@ -64,9 +62,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 }) => {
   const handleToggleFeature = onUpdateFeatureToggle || onUpdateToggle;
   const [featureMenuOpen, setFeatureMenuOpen] = useState(false);
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
-  const activeThemeObj = ADMIN_THEMES.find((t) => t.id === currentTheme) || ADMIN_THEMES[3];
 
   const syncConfig = {
     synced: {
@@ -148,65 +144,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             </div>
           </div>
 
-          {/* Right: Quick Feature ON/OFF Menu, Theme Switcher, URLs, Sync Status & Storefront Switch */}
+          {/* Right: Quick Feature ON/OFF Menu, URLs, Sync Status & Storefront Switch */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Admin Theme Switcher */}
-            {onSelectTheme && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-purple-500/40 bg-purple-950/60 hover:bg-purple-900/60 text-xs font-black text-purple-200 transition cursor-pointer"
-                  title="Switch Admin Theme"
-                >
-                  <i className={`fa-solid ${activeThemeObj.icon} text-purple-400 text-xs`}></i>
-                  <span className="hidden lg:inline">{activeThemeObj.name}</span>
-                  <i className="fa-solid fa-chevron-down text-[9px] opacity-75"></i>
-                </button>
-
-                {themeMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setThemeMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-[#13131a] border border-purple-700/60 shadow-2xl shadow-purple-950/90 p-2 z-50 space-y-1">
-                      <p className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-purple-400">
-                        Select Admin Theme
-                      </p>
-                      {ADMIN_THEMES.map((t) => {
-                        const isSelected = t.id === currentTheme;
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => {
-                              onSelectTheme(t.id);
-                              setThemeMenuOpen(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                              isSelected
-                                ? 'bg-purple-600 text-white shadow-md shadow-purple-900/50'
-                                : 'text-purple-200 hover:bg-purple-950/70'
-                            }`}
-                          >
-                            <span className="flex items-center gap-2">
-                              <span
-                                className="w-3 h-3 rounded-full border border-white/30"
-                                style={{ backgroundColor: t.previewColor }}
-                              />
-                              <span>{t.name}</span>
-                            </span>
-                            {isSelected && <i className="fa-solid fa-check text-[10px]" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
             {/* Quick Feature ON/OFF Toggle Menu */}
             {featureToggles && handleToggleFeature && (
               <div className="relative">
