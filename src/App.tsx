@@ -40,7 +40,7 @@ const StorefrontLayout: React.FC = () => {
   const { currentView, featureToggles } = useStore();
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-slate-200 flex flex-col font-sans selection:bg-purple-600 selection:text-white relative">
+    <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#0a0a0f] text-slate-200 flex flex-col font-sans selection:bg-purple-600 selection:text-white relative">
       {/* 1. 3D Square Splash Screen (Always shown on refresh) */}
       <Splash />
 

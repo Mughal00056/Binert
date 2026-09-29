@@ -101,31 +101,34 @@ export const AllProductsView: React.FC = () => {
                   )}
                 </div>
 
-                <div className="p-3.5 flex flex-col flex-1 justify-between">
-                  <div>
-                    <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-1">
+                <div className="p-3 sm:p-3.5 flex flex-col flex-1 justify-between min-w-0">
+                  <div className="min-w-0">
+                    <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-1 truncate">
                       {p.category}
                     </div>
-                    <h3 className="text-xs sm:text-sm font-black text-white line-clamp-2 group-hover:text-purple-300 transition">
+                    <h3 className="text-xs sm:text-sm font-black text-white line-clamp-2 group-hover:text-purple-300 transition break-words">
                       {p.name}
                     </h3>
+                    <div className="text-sm sm:text-base font-black text-purple-300 mt-1.5 truncate">
+                      {formatPKR(p.price)}
+                    </div>
                   </div>
 
-                  <div className="pt-3 mt-2 border-t border-purple-900/30 flex items-center justify-between gap-2">
-                    <span className="text-sm font-black text-purple-300">{formatPKR(p.price)}</span>
+                  <div className="pt-2.5 mt-2 border-t border-purple-900/30 w-full">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         addToCart(p.id, e);
                       }}
-                      className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition cursor-pointer ${
+                      className={`w-full py-2 px-3 rounded-xl text-[11px] sm:text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
                         inCart
-                          ? 'bg-purple-600 text-white'
+                          ? 'bg-purple-600 text-white border border-purple-400'
                           : 'bg-[#1a1a24] hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-800/60'
                       }`}
                     >
-                      {inCart ? 'Added' : '+ Add'}
+                      <i className={`fa-solid ${inCart ? 'fa-check' : 'fa-cart-plus'} text-[11px]`} />
+                      <span>{inCart ? 'ADDED' : 'ADD TO CART'}</span>
                     </button>
                   </div>
                 </div>

@@ -16,6 +16,7 @@ interface AdminHeaderProps {
   onForceSync: () => void;
   onToggleSidebar: () => void;
   onSwitchToStorefront: () => void;
+  onLockAdmin?: () => void;
   onShowToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -58,6 +59,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   onForceSync,
   onToggleSidebar,
   onSwitchToStorefront,
+  onLockAdmin,
   onShowToast
 }) => {
   const handleToggleFeature = onUpdateFeatureToggle || onUpdateToggle;
@@ -247,17 +249,29 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             <button
               type="button"
               onClick={onForceSync}
-              className="p-2 text-purple-300 hover:text-white bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/40 rounded-xl transition cursor-pointer"
+              className="p-2 text-purple-300 hover:text-white bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/40 rounded-xl transition cursor-pointer shrink-0"
               title="Force Sync with Storefront & Firebase"
             >
               <i className="fa-solid fa-rotate text-xs sm:text-sm"></i>
             </button>
 
+            {/* Lock Admin (3D Splash Gate) */}
+            {onLockAdmin && (
+              <button
+                type="button"
+                onClick={onLockAdmin}
+                className="p-2 text-amber-300 hover:text-white bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/40 rounded-xl transition cursor-pointer shrink-0"
+                title="Lock Admin Panel (3D Splash Login)"
+              >
+                <i className="fa-solid fa-lock text-xs sm:text-sm"></i>
+              </button>
+            )}
+
             {/* Storefront switch button */}
             <button
               type="button"
               onClick={onSwitchToStorefront}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white text-xs font-black px-3 sm:px-3.5 py-2 rounded-xl transition shadow-md shadow-purple-950/60 border border-purple-400/30 cursor-pointer"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white text-xs font-black px-2.5 sm:px-3.5 py-2 rounded-xl transition shadow-md shadow-purple-950/60 border border-purple-400/30 cursor-pointer shrink-0"
             >
               <i className="fa-solid fa-store text-xs"></i>
               <span className="hidden sm:inline">Storefront</span>

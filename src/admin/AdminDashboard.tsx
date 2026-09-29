@@ -27,6 +27,7 @@ import {
 } from '../lib/firebase';
 import { Sidebar, TabKey } from './components/AdminSidebar';
 import { AdminHeader } from './components/AdminHeader';
+import { AdminSplashAuth } from './components/AdminSplashAuth';
 
 // Tabs
 import { DashboardTab } from './components/DashboardTab';
@@ -79,6 +80,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'offline' | 'error'>('saving');
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
 
   // Modals state
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -2044,8 +2046,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
 
   const headerMeta = getTabHeader(currentTab);
 
+  if (!isAdminAuthenticated) {
+    return <AdminSplashAuth onAuthenticated={() => setIsAdminAuthenticated(true)} />;
+  }
+
   return (
-    <div className="min-h-screen admin-dark-theme bg-[#0a0a0f] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden admin-dark-theme bg-[#0a0a0f] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Toast notifications */}
       <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
@@ -2099,13 +2105,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           onForceSync={handleForceSync}
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           onSwitchToStorefront={onSwitchToStorefront || (() => setStorePreviewModalOpen(true))}
+          onLockAdmin={() => setIsAdminAuthenticated(false)}
           onShowToast={showToast}
           featureToggles={featureToggles}
           onUpdateToggle={handleUpdateFeatureToggle}
           onOpenFeaturesTab={() => setCurrentTab('features')}
         />
 
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto min-w-0 overflow-x-hidden">
           {currentTab === 'dashboard' && (
             <DashboardTab
               state={state}
@@ -2127,6 +2134,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
               onUpdateToggle={handleUpdateFeatureToggle}
               onEnableAll={handleEnableAllFeatures}
               onDisableAll={handleDisableAllFeatures}
+              whatsappUrl={state.storeSettings?.whatsapp || 'https://whatsapp.com/channel/0029Vb7r27cI7BeE38n42O1V'}
+              onSaveWhatsappUrl={(url) => {
+                const updatedSettings: StoreSettings = {
+                  ...(state.storeSettings || {
+                    name: 'ApexStore',
+                    owner: 'Anees Abid',
+                    email: 'anees@apexstore.com',
+                    phone: '+92 300 1234567',
+                    city: 'Azad Kashmir',
+                    whatsapp: url
+                  }),
+                  whatsapp: url,
+                  showWhatsapp: true
+                };
+                handleSaveStoreSettings(updatedSettings);
+              }}
             />
           )}
 

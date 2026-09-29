@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FeatureToggles } from '../../types';
 
 interface FeaturesTabProps {
@@ -6,6 +6,8 @@ interface FeaturesTabProps {
   onUpdateToggle: (feature: keyof FeatureToggles, enabled: boolean) => void;
   onEnableAll: () => void;
   onDisableAll: () => void;
+  whatsappUrl?: string;
+  onSaveWhatsappUrl?: (url: string) => void;
 }
 
 interface FeatureItemConfig {
@@ -215,13 +217,75 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({
   featureToggles,
   onUpdateToggle,
   onEnableAll,
-  onDisableAll
+  onDisableAll,
+  whatsappUrl = '',
+  onSaveWhatsappUrl
 }) => {
+  const [waInput, setWaInput] = useState(whatsappUrl || 'https://whatsapp.com/channel/0029Vb7r27cI7BeE38n42O1V');
+
+  useEffect(() => {
+    if (whatsappUrl) {
+      setWaInput(whatsappUrl);
+    }
+  }, [whatsappUrl]);
+
   const activeCount = FEATURE_LIST.filter((f) => featureToggles[f.key] !== false).length;
   const totalCount = FEATURE_LIST.length;
 
   return (
     <div className="space-y-6">
+      {/* Dedicated WhatsApp Floating Button URL Control Card */}
+      <div className="bg-[#13131a] rounded-2xl p-4 sm:p-6 border border-emerald-500/40 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-green-500 text-white flex items-center justify-center text-lg shadow-md shrink-0">
+              <i className="fa-brands fa-whatsapp"></i>
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-white">
+                WhatsApp Floating Button URL (Storefront Bottom-Left)
+              </h3>
+              <p className="text-xs text-purple-300/80">
+                Enter your WhatsApp Channel link, Group link, or Direct Chat URL (e.g. https://wa.me/923001234567)
+              </p>
+            </div>
+          </div>
+          <span
+            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border self-start sm:self-auto ${
+              featureToggles.whatsAppFloat !== false
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                : 'bg-rose-950/60 text-rose-300 border-rose-800/50'
+            }`}
+          >
+            Floating Button: {featureToggles.whatsAppFloat !== false ? 'ACTIVE' : 'OFF'}
+          </span>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (onSaveWhatsappUrl) {
+              onSaveWhatsappUrl(waInput.trim());
+            }
+          }}
+          className="flex flex-col sm:flex-row gap-2.5"
+        >
+          <input
+            type="text"
+            value={waInput}
+            onChange={(e) => setWaInput(e.target.value)}
+            placeholder="https://whatsapp.com/channel/... or https://wa.me/923001234567"
+            className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#0a0a0f] border border-purple-800/60 focus:border-emerald-400 text-white text-xs sm:text-sm font-mono outline-none"
+          />
+          <button
+            type="submit"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/50 transition cursor-pointer flex items-center justify-center gap-2 shrink-0"
+          >
+            <i className="fa-solid fa-floppy-disk"></i>
+            <span>Save WhatsApp URL</span>
+          </button>
+        </form>
+      </div>
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-[#13131a] via-purple-950/80 to-[#13131a] rounded-2xl p-5 sm:p-6 text-white border border-purple-800/50 shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-96 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/20 via-fuchsia-500/10 to-transparent pointer-events-none" />

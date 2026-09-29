@@ -1060,15 +1060,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Flying item particles
   const [flyingParticles, setFlyingParticles] = useState<FlyingParticle[]>([]);
 
-  // Toast System
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  // Toast System (Silenced completely in User Panel per user request)
+  const [toasts] = useState<ToastMessage[]>([]);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    const id = Date.now().toString() + Math.random().toString().slice(2, 6);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 2800);
+  const showToast = (_message: string, _type: 'success' | 'error' | 'info' = 'success') => {
+    // Full silence in User Storefront
   };
 
   // Sync products to localStorage
@@ -1725,11 +1721,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updateFirebasePartial({ notifications: updated }).catch(() => {});
       return updated;
     });
-    // Ensure it's unread
+    // Ensure it's unread (silent, no toast popup)
     setReadNotificationIds((prev) => prev.filter((id) => id !== newNotif.id));
-    if (!targetEmail || (currentUser && currentUser.email.trim().toLowerCase() === targetEmail.trim().toLowerCase())) {
-      showToast(title, type === 'alert' ? 'error' : 'success');
-    }
   };
 
   const markNotificationRead = (id: string) => {
@@ -1942,37 +1935,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // Build updated orders & notifications synchronously before React commit or Firebase sync
+    // Build updated orders synchronously before React commit or Firebase sync (no auto-notification on user actions)
     const nextOrders = [newOrder, ...orders.filter((o) => String(o.id) !== String(orderId))];
-    const orderNotif: StoreNotification = {
-      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      type: 'order',
-      icon: 'fa-hourglass-start',
-      title: `Order #${String(orderId).slice(-6)} Submitted`,
-      desc: `Payment of ${formatPKR(cartTotal)} submitted! Admin verification timer started (3m).`,
-      time: Date.now(),
-      active: true,
-      targetEmail: buyerEmail,
-      orderId
-    };
-    const nextNotifications = [orderNotif, ...notifications];
 
     try {
       localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(nextOrders));
-      localStorage.setItem(LOCAL_STORAGE_NOTIFS, JSON.stringify(nextNotifications));
     } catch {}
 
     setOrders(nextOrders);
-    setNotifications(nextNotifications);
     setCurrentOrder(newOrder);
     setOrderStatus('pending');
     setActiveTimerOrderId(orderId);
     setPaymentModalOpen(false);
     setTimerModalOpen(true);
     clearCart();
-    showToast(`Order #${String(orderId).slice(-6)} submitted! Timer started.`, 'success');
 
-    // Single atomic Firebase sync with ordersCleared: false so notifications never overwrite orders
+    // Single atomic Firebase sync with ordersCleared: false
     updateFirebasePartial({
       orders: nextOrders.map((o) => ({ ...o, id: String(o.id) })),
       ordersCleared: false,
@@ -1987,8 +1965,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createdAt: u.createdAt,
         lastLoginAt: u.lastLoginAt || new Date().toISOString()
       })),
-      usersCleared: false,
-      notifications: nextNotifications
+      usersCleared: false
     }).catch(() => {});
   };
 

@@ -86,14 +86,14 @@ export const DynamicSections: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end pt-1">
+            <div className="pt-1 w-full">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   addToCart(p.id, e);
                 }}
-                className={`inline-flex items-center gap-1 text-[11px] font-extrabold py-1.5 px-3 rounded-xl border transition-all duration-200 cursor-pointer active:scale-90 ${
+                className={`w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-extrabold py-2 px-3 rounded-xl border transition-all duration-200 cursor-pointer active:scale-95 ${
                   inCart
                     ? 'bg-purple-600 text-white border-purple-400 shadow-md shadow-purple-900/50'
                     : 'bg-[#1a1a24] text-purple-200 border-purple-800/60 hover:bg-purple-900 hover:text-white hover:border-purple-400'
@@ -105,7 +105,7 @@ export const DynamicSections: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <i className="fa-solid fa-plus text-[10px]" /> ADD
+                    <i className="fa-solid fa-cart-plus text-[10px]" /> ADD TO CART
                   </>
                 )}
               </button>
@@ -120,7 +120,7 @@ export const DynamicSections: React.FC = () => {
       <div
         key={p.id}
         onClick={() => setQuickViewProduct(p)}
-        className="product-card-3d bg-[#13131a] rounded-2xl overflow-hidden border border-purple-900/40 shadow-lg cursor-pointer flex flex-col justify-between group max-w-full"
+        className="product-card-3d bg-[#13131a] rounded-2xl overflow-hidden border border-purple-900/40 shadow-lg cursor-pointer flex flex-col justify-between group w-full max-w-full min-w-0"
       >
         <div className="relative w-full aspect-[3/4] overflow-hidden bg-[#1a1a24]">
           <img
@@ -141,27 +141,27 @@ export const DynamicSections: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-[#13131a] via-transparent to-transparent opacity-50" />
         </div>
 
-        <div className="p-3.5 flex flex-col flex-1 justify-between min-w-0">
+        <div className="p-3 sm:p-3.5 flex flex-col flex-1 justify-between min-w-0">
           <div className="min-w-0">
-            <div className="text-xs sm:text-sm font-black text-white leading-snug mb-1.5 line-clamp-2 min-h-[34px] group-hover:text-purple-300 transition-colors break-words">
+            <div className="text-xs sm:text-sm font-black text-white leading-snug mb-1 line-clamp-2 min-h-[34px] group-hover:text-purple-300 transition-colors break-words">
               {p.name}
             </div>
-            <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-2">
+            <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-1.5 truncate">
               {p.category}
             </div>
-            <div className="text-base font-black text-purple-300 mb-2.5 truncate">
+            <div className="text-sm sm:text-base font-black text-purple-300 mb-2.5 truncate">
               {formatPKR(p.price)}
             </div>
           </div>
 
-          <div className="flex justify-end pt-2 border-t border-purple-900/20">
+          <div className="pt-2 border-t border-purple-900/20 w-full">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 addToCart(p.id, e);
               }}
-              className={`inline-flex items-center gap-1.5 text-xs font-black py-2 px-4 rounded-xl border transition-all duration-200 cursor-pointer active:scale-90 ${
+              className={`w-full inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-black py-2 px-3 rounded-xl border transition-all duration-200 cursor-pointer active:scale-95 ${
                 inCart
                   ? 'bg-purple-600 text-white border-purple-400 shadow-md shadow-purple-900/50'
                   : 'bg-[#1a1a24] text-purple-200 border-purple-800/60 hover:bg-purple-900 hover:text-white hover:border-purple-400'
@@ -169,11 +169,11 @@ export const DynamicSections: React.FC = () => {
             >
               {inCart ? (
                 <>
-                  <i className="fa-solid fa-check text-xs" /> ADDED
+                  <i className="fa-solid fa-check text-[11px]" /> ADDED
                 </>
               ) : (
                 <>
-                  <i className="fa-solid fa-plus text-xs" /> ADD
+                  <i className="fa-solid fa-cart-plus text-[11px]" /> ADD TO CART
                 </>
               )}
             </button>

@@ -67,30 +67,30 @@ export const Header: React.FC = () => {
   });
 
   return (
-    <header className="bg-[#13131a]/95 backdrop-blur-md border-b border-purple-900/40 shadow-lg shadow-purple-950/20 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
+    <header className="bg-[#13131a]/95 backdrop-blur-md border-b border-purple-900/40 shadow-lg shadow-purple-950/20 sticky top-0 z-40 w-full max-w-full">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 w-full">
+        <div className="flex items-center justify-between h-15 sm:h-20 gap-1.5 sm:gap-3 w-full min-w-0">
           
           {/* Left: Menu & Brand */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
             {featureToggles.sideMenu !== false && (
               <button
                 onClick={() => setSideMenuOpen(true)}
-                className="relative p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
+                className="relative p-1.5 sm:p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer shrink-0"
                 aria-label="Open navigation menu"
               >
-                <i className="fa-solid fa-bars text-xl" />
+                <i className="fa-solid fa-bars text-lg sm:text-xl" />
                 {featureToggles.notifications !== false && unreadNotificationCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-purple-500 shadow-md shadow-purple-500/50" />
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-500 shadow-md shadow-purple-500/50" />
                 )}
               </button>
             )}
 
             <button
               onClick={goHome}
-              className="flex items-center gap-2.5 text-left shrink-0 cursor-pointer group"
+              className="flex items-center gap-2 text-left min-w-0 cursor-pointer group"
             >
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#13131a] text-white flex items-center justify-center shadow-lg shadow-purple-900/50 overflow-hidden border border-purple-500/40 group-hover:border-purple-400 transition">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#13131a] text-white flex items-center justify-center shadow-lg shadow-purple-900/50 overflow-hidden border border-purple-500/40 group-hover:border-purple-400 transition shrink-0">
                 <img
                   src={LOGO_URL}
                   alt="ApexStore Logo"
@@ -98,8 +98,8 @@ export const Header: React.FC = () => {
                   draggable={false}
                 />
               </div>
-              <div>
-                <span className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              <div className="min-w-0">
+                <span className="text-base sm:text-2xl font-black tracking-tight text-white block truncate">
                   Apex<span className="text-purple-400">Store</span>
                 </span>
               </div>
@@ -107,28 +107,28 @@ export const Header: React.FC = () => {
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Search */}
             {featureToggles.searchPanel !== false && (
               <button
                 onClick={() => setSearchSuggestionsOpen(true)}
-                className="p-2 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
+                className="p-1.5 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer shrink-0"
                 aria-label="Search catalog"
               >
-                <i className="fa-solid fa-magnifying-glass text-lg sm:text-xl" />
+                <i className="fa-solid fa-magnifying-glass text-base sm:text-xl" />
               </button>
             )}
 
             {/* Orders */}
             <button
               onClick={openOrdersView}
-              className="relative p-2 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer flex items-center gap-1.5"
+              className="relative p-1.5 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer flex items-center gap-1.5 shrink-0"
               aria-label="View orders"
               title="My Orders & Tracking"
             >
-              <i className="fa-solid fa-box-open text-lg sm:text-xl" />
+              <i className="fa-solid fa-box-open text-base sm:text-xl" />
               {userOrders.length > 0 && (
-                <span className="hidden sm:inline-block text-[11px] font-black text-purple-200">
+                <span className="hidden md:inline-block text-[11px] font-black text-purple-200">
                   Orders ({userOrders.length})
                 </span>
               )}
@@ -138,10 +138,10 @@ export const Header: React.FC = () => {
             {featureToggles.notifications !== false && (
               <button
                 onClick={() => setNotificationModalOpen(true)}
-                className="relative p-2 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
+                className="relative p-1.5 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer shrink-0"
                 aria-label="View notifications"
               >
-                <i className="fa-regular fa-bell text-lg sm:text-xl" />
+                <i className="fa-regular fa-bell text-base sm:text-xl" />
                 {unreadNotificationCount > 0 && (
                   <span className="absolute top-0.5 right-0.5 bg-purple-500 text-white text-[9px] font-extrabold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center shadow-sm">
                     {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
@@ -151,18 +151,18 @@ export const Header: React.FC = () => {
             )}
 
             {/* User Auth: Sign In / Account Dropdown */}
-            <div className="relative" ref={dropdownRef}>
+            <div className="relative shrink-0" ref={dropdownRef}>
               {currentUser ? (
                 /* Logged In Pill */
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 hover:border-purple-500 transition cursor-pointer text-left"
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 border border-purple-800/60 hover:border-purple-500 transition cursor-pointer text-left"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-600 to-fuchsia-500 flex items-center justify-center text-white text-xs font-black shadow-sm">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-gradient-to-tr from-purple-600 to-fuchsia-500 flex items-center justify-center text-white text-xs font-black shadow-sm shrink-0">
                     {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <div className="hidden md:flex flex-col text-left">
-                    <span className="text-xs font-black text-white max-w-[100px] truncate leading-tight">
+                    <span className="text-xs font-black text-white max-w-[90px] truncate leading-tight">
                       {currentUser.name.split(' ')[0]}
                     </span>
                     <span
@@ -175,26 +175,26 @@ export const Header: React.FC = () => {
                       {currentUser.verified ? 'Verified' : 'Unverified'}
                     </span>
                   </div>
-                  <i className={`fa-solid fa-chevron-down text-[10px] text-purple-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                  <i className={`fa-solid fa-chevron-down text-[9px] sm:text-[10px] text-purple-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
               ) : (
                 /* Guest Sign In Button */
                 <button
                   onClick={openSignIn}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-900/60 to-purple-800/40 hover:from-purple-800 hover:to-purple-700 text-purple-100 border border-purple-600/50 hover:border-purple-400 text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-sm active:scale-95"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-purple-900/60 to-purple-800/40 hover:from-purple-800 hover:to-purple-700 text-purple-100 border border-purple-600/50 hover:border-purple-400 text-[11px] sm:text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-sm active:scale-95 shrink-0"
                 >
                   <i className="fa-regular fa-user text-purple-300 text-xs" />
-                  <span className="hidden sm:inline">Sign In</span>
+                  <span className="hidden xs:inline sm:inline">Sign In</span>
                 </button>
               )}
 
               {/* User Dropdown Menu */}
               {userDropdownOpen && currentUser && (
-                <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-[#13131a] border border-purple-900/60 shadow-2xl shadow-purple-950/90 py-2 z-50 animate-[slideUpFade_0.2s_cubic-bezier(0.22,1,0.36,1)]">
+                <div className="absolute right-0 mt-2 w-60 sm:w-64 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-[#13131a] border border-purple-900/60 shadow-2xl shadow-purple-950/90 py-2 z-50 animate-[slideUpFade_0.2s_cubic-bezier(0.22,1,0.36,1)]">
                   {/* User Profile Info Header */}
                   <div className="px-4 py-3 border-b border-purple-900/40 bg-gradient-to-r from-purple-950/60 to-transparent">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-fuchsia-600 flex items-center justify-center text-white font-black text-sm shadow">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-fuchsia-600 flex items-center justify-center text-white font-black text-sm shadow shrink-0">
                         {currentUser.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -259,16 +259,16 @@ export const Header: React.FC = () => {
               )}
             </div>
 
-            {/* Cart with smooth, silent micro-update */}
+            {/* Cart Button - Always visible inside screen on mobile & desktop */}
             <button
               id="headerCartBtn"
               onClick={() => setCartDrawerOpen(true)}
-              className="relative p-2 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
+              className="relative p-2 sm:p-2.5 text-purple-300 hover:text-white bg-purple-950/50 hover:bg-purple-900/60 border border-purple-700/40 rounded-xl transition cursor-pointer shrink-0 flex items-center justify-center"
               aria-label="View cart"
             >
-              <i className="fa-solid fa-cart-shopping text-lg sm:text-xl" />
+              <i className="fa-solid fa-cart-shopping text-base sm:text-xl" />
               <span
-                className={`absolute top-1 right-1 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white text-[10px] font-extrabold h-4 w-4 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 ${
+                className={`absolute -top-1 -right-1 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white text-[10px] font-extrabold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center shadow-sm transition-transform duration-200 ${
                   cartBump ? 'scale-110 shadow-purple-500/80' : 'scale-100'
                 }`}
               >

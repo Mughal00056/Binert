@@ -204,6 +204,44 @@ export const StoreSettingsTab: React.FC<StoreSettingsTabProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Dedicated WhatsApp Floating Button URL Card */}
+        <div className="bg-[#13131a] rounded-2xl border border-emerald-500/40 p-5 sm:p-6 shadow-xl space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-purple-900/40">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-green-500 text-white flex items-center justify-center text-base shadow-md">
+                <i className="fa-brands fa-whatsapp"></i>
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
+                  WhatsApp Floating Button URL (Storefront Bottom-Left)
+                </h3>
+                <p className="text-[11px] text-purple-300/80">
+                  Set the direct WhatsApp link or number opened when customers click the floating WhatsApp button
+                </p>
+              </div>
+            </div>
+            {renderSwitch('showWhatsapp', 'WhatsApp')}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <input
+              type="text"
+              value={form.whatsapp || ''}
+              onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+              placeholder="https://whatsapp.com/channel/... or https://wa.me/923001234567"
+              className="flex-1 px-3.5 py-2.5 rounded-xl border border-purple-800/60 bg-[#0d0d14] text-white text-xs sm:text-sm font-mono focus:outline-none focus:border-emerald-400"
+            />
+            <button
+              type="button"
+              onClick={() => onSaveSettings(form)}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-950/50 transition cursor-pointer flex items-center justify-center gap-2 shrink-0"
+            >
+              <i className="fa-solid fa-floppy-disk"></i>
+              <span>Save WhatsApp URL</span>
+            </button>
+          </div>
+        </div>
+
         {/* 1. Owner Photo & Identity Card */}
         <div className="bg-[#13131a] rounded-2xl border border-purple-900/50 p-5 sm:p-6 shadow-xl space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-purple-900/40">
