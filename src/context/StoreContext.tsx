@@ -223,12 +223,7 @@ function isAdminEmail(email?: string): boolean {
   const clean = email.trim().toLowerCase();
   return (
     clean === 'founderofapexstore@gmail.com' ||
-    clean === 'aneesabid0012@gmail.com' ||
-    clean === 'anees@apexstore.com' ||
-    clean === 'admin@apexstore.com' ||
-    clean.includes('founder') ||
-    clean.includes('admin') ||
-    clean.includes('aneesabid')
+    clean === 'admin@apexstore.com'
   );
 }
 
@@ -692,6 +687,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!parsed?.email || deletedEmails.has(parsed.email.trim().toLowerCase())) {
         localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
         return null;
+      }
+      if (!isAdminEmail(parsed.email) && parsed.role === 'admin') {
+        parsed.role = 'user';
       }
       return parsed;
     } catch {

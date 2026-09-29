@@ -209,7 +209,7 @@ export const AuthModal: React.FC = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. founderofapexstore@gmail.com"
+                    placeholder="e.g. yourname@example.com"
                     required
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#161622] border border-purple-900/50 text-white text-xs sm:text-sm placeholder-purple-400/40 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition"
                   />
@@ -403,31 +403,16 @@ export const AuthModal: React.FC = () => {
           {/* Bottom Switch prompt */}
           <div className="text-center pt-2 space-y-2.5">
             {authModalMode === 'signin' ? (
-              <>
-                <p className="text-xs text-purple-300/80">
-                  Don't have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => switchMode('signup')}
-                    className="font-black text-purple-300 hover:text-white underline cursor-pointer"
-                  >
-                    Create one now
-                  </button>
-                </p>
-                <div className="pt-2 border-t border-purple-900/30">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleClose();
-                      window.dispatchEvent(new CustomEvent('apex_switch_mode', { detail: 'admin' }));
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 text-purple-200 hover:text-white border border-purple-700/50 text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <i className="fa-solid fa-sliders text-purple-400 text-xs" />
-                    <span>Open Admin Panel</span>
-                  </button>
-                </div>
-              </>
+              <p className="text-xs text-purple-300/80">
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => switchMode('signup')}
+                  className="font-black text-purple-300 hover:text-white underline cursor-pointer"
+                >
+                  Create one now
+                </button>
+              </p>
             ) : (
               <p className="text-xs text-purple-300/80">
                 Already registered?{' '}

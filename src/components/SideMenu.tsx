@@ -94,15 +94,13 @@ export const SideMenu: React.FC = () => {
                   <p className="text-[10px] text-purple-300/70 truncate">{currentUser.email}</p>
                   <span
                     className={`inline-block mt-0.5 text-[9px] font-black uppercase tracking-widest ${
-                      currentUser.role === 'admin' || currentUser.verified
+                      currentUser.verified
                         ? 'text-emerald-400'
                         : 'text-amber-400'
                     }`}
                   >
                     ●{' '}
-                    {currentUser.role === 'admin'
-                      ? 'Founder & Admin'
-                      : currentUser.verified
+                    {currentUser.verified
                       ? 'Verified Member'
                       : 'Unverified • Pending OTP'}
                   </span>
@@ -261,21 +259,6 @@ export const SideMenu: React.FC = () => {
               <span>WhatsApp Channel</span>
             </a>
           )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setSideMenuOpen(false);
-              window.dispatchEvent(new CustomEvent('apex_switch_mode', { detail: 'admin' }));
-            }}
-            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-black text-purple-200 hover:bg-purple-900/40 hover:text-white transition text-left cursor-pointer"
-          >
-            <i className="fa-solid fa-sliders w-5 text-center text-purple-400" />
-            <span>Admin Panel</span>
-            <span className="ml-auto px-2 py-0.5 rounded-full bg-purple-900/70 border border-purple-600/40 text-[9px] font-black uppercase text-purple-200">
-              Open
-            </span>
-          </button>
         </div>
 
         {/* Footer */}

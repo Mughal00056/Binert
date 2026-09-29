@@ -150,19 +150,6 @@ export const Header: React.FC = () => {
               </button>
             )}
 
-            {/* Direct Admin Panel Button */}
-            <button
-              type="button"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('apex_switch_mode', { detail: 'admin' }));
-              }}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/70 text-purple-200 hover:text-white border border-purple-700/50 hover:border-purple-400 text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-sm"
-              title="Open Admin Panel"
-            >
-              <i className="fa-solid fa-sliders text-purple-400 text-xs" />
-              <span className="hidden md:inline">Admin</span>
-            </button>
-
             {/* User Auth: Sign In / Account Dropdown */}
             <div className="relative" ref={dropdownRef}>
               {currentUser ? (
@@ -180,16 +167,12 @@ export const Header: React.FC = () => {
                     </span>
                     <span
                       className={`text-[9px] font-bold uppercase tracking-wider leading-none ${
-                        currentUser.role === 'admin' || currentUser.verified
+                        currentUser.verified
                           ? 'text-emerald-400'
                           : 'text-amber-400'
                       }`}
                     >
-                      {currentUser.role === 'admin'
-                        ? 'Founder'
-                        : currentUser.verified
-                        ? 'Verified'
-                        : 'Unverified'}
+                      {currentUser.verified ? 'Verified' : 'Unverified'}
                     </span>
                   </div>
                   <i className={`fa-solid fa-chevron-down text-[10px] text-purple-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
@@ -222,21 +205,19 @@ export const Header: React.FC = () => {
                     <div className="mt-2 flex items-center gap-1.5">
                       <span
                         className={`w-1.5 h-1.5 rounded-full animate-ping ${
-                          currentUser.role === 'admin' || currentUser.verified
+                          currentUser.verified
                             ? 'bg-emerald-400'
                             : 'bg-amber-400'
                         }`}
                       />
                       <span
                         className={`text-[9px] font-bold uppercase tracking-wider ${
-                          currentUser.role === 'admin' || currentUser.verified
+                          currentUser.verified
                             ? 'text-emerald-400'
                             : 'text-amber-400'
                         }`}
                       >
-                        {currentUser.role === 'admin'
-                          ? 'Store Administrator'
-                          : currentUser.verified
+                        {currentUser.verified
                           ? 'Verified Member'
                           : 'Unverified • Pending Admin OTP'}
                       </span>
@@ -260,18 +241,6 @@ export const Header: React.FC = () => {
                       <span className="px-2 py-0.5 rounded-full bg-purple-900/60 text-purple-300 text-[10px] font-black">
                         {userOrders.length}
                       </span>
-                    </button>
-
-                    {/* Admin Switch */}
-                    <button
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                        window.dispatchEvent(new CustomEvent('apex_switch_mode', { detail: 'admin' }));
-                      }}
-                      className="w-full px-4 py-2.5 text-xs font-bold text-amber-300 hover:bg-purple-900/30 hover:text-amber-200 flex items-center gap-2 transition cursor-pointer"
-                    >
-                      <i className="fa-solid fa-crown text-amber-400 text-xs" />
-                      <span>Open Admin Panel</span>
                     </button>
 
                     {/* Sign Out */}
