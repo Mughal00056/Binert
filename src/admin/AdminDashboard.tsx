@@ -81,16 +81,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'offline' | 'error'>('saving');
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Admin Theme locked strictly to User Panel Storefront Dark Neon theme ('cyber')
-  const [adminTheme, setAdminTheme] = useState<AdminTheme>('cyber');
-
-  const handleSelectTheme = () => {
-    setAdminTheme('cyber');
+  // Admin Theme with persistent selection (defaults to 'cyber' Dark Neon theme)
+  const [adminTheme, setAdminTheme] = useState<AdminTheme>(() => {
     try {
-      localStorage.setItem('apex_admin_theme', 'cyber');
+      const saved = localStorage.getItem('apex_admin_theme') as AdminTheme | null;
+      if (saved && ['cyber', 'default', 'midnight', 'emerald'].includes(saved)) {
+        return saved;
+      }
+    } catch {}
+    return 'cyber';
+  });
+
+  const handleSelectTheme = (theme: AdminTheme) => {
+    setAdminTheme(theme);
+    try {
+      localStorage.setItem('apex_admin_theme', theme);
     } catch {
       // ignore
     }
+    const found = ADMIN_THEMES.find((t) => t.id === theme);
+    showToast(`Admin theme switched to ${found?.name || theme}!`, 'info');
   };
 
   // Modals state
@@ -1124,6 +1134,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       if (deletedRaw) {
         deletedList = JSON.parse(deletedRaw);
       }
+      const permRaw = localStorage.getItem('apex_permanently_deleted_users');
+      if (permRaw) {
+        const permList: string[] = JSON.parse(permRaw);
+        localStorage.setItem(
+          'apex_permanently_deleted_users',
+          JSON.stringify(permList.filter((e) => e.trim().toLowerCase() !== cleanEmail))
+        );
+      }
     } catch {}
     deletedList = deletedList.filter((e) => e.trim().toLowerCase() !== cleanEmail);
 
@@ -1135,6 +1153,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       email: cleanEmail,
       password: cleanPassword,
       role: (cleanEmail.includes('founder') || cleanEmail.includes('admin') ? 'admin' : 'user') as 'admin' | 'user',
+      blocked: false,
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString()
     };
@@ -1142,7 +1161,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     const updatedUsers = exists
       ? currentUsers.map((u) =>
           (u.email || '').trim().toLowerCase() === cleanEmail
-            ? { ...u, name: cleanName, password: cleanPassword }
+            ? { ...u, name: cleanName, password: cleanPassword, blocked: false }
             : u
         )
       : [newUserRecord, ...currentUsers];
@@ -1150,7 +1169,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     await syncUsersEverywhere(
       updatedUsers,
       deletedList,
-      exists ? `User "${cleanEmail}" updated & unblocked!` : `User "${cleanEmail}" created & active!`,
+      exists ? `User "${cleanEmail}" unblocked & restored to Active Users!` : `User "${cleanEmail}" created & active!`,
       'success'
     );
   };
@@ -1322,7 +1341,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     );
   };
 
-  const handleDeleteUser = async (emailOrId: string) => {
+  // Block an active user (moves user to Blocked Users tab; does NOT delete them)
+  const handleBlockUser = async (emailOrId: string) => {
     const targetKey = emailOrId.trim().toLowerCase();
     const currentUsers = Array.isArray(state.users) ? state.users : [];
     const matchedUser = currentUsers.find(
@@ -1331,6 +1351,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         (u.email || '').trim().toLowerCase() === targetKey
     );
     const emailToBlock = (matchedUser?.email || emailOrId).trim().toLowerCase();
+    if (!emailToBlock) return;
 
     let deletedList: string[] = [];
     try {
@@ -1338,6 +1359,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       deletedList = deletedRaw ? JSON.parse(deletedRaw) : [];
       if (!deletedList.includes(emailToBlock)) {
         deletedList.push(emailToBlock);
+      }
+      const permRaw = localStorage.getItem('apex_permanently_deleted_users');
+      if (permRaw) {
+        const permList: string[] = JSON.parse(permRaw);
+        localStorage.setItem(
+          'apex_permanently_deleted_users',
+          JSON.stringify(permList.filter((e) => e.trim().toLowerCase() !== emailToBlock))
+        );
       }
       const currUserRaw = localStorage.getItem('apex_current_user');
       if (currUserRaw) {
@@ -1348,34 +1377,139 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       }
     } catch {}
 
+    const exists = currentUsers.some((u) => (u.email || '').trim().toLowerCase() === emailToBlock);
+    const updatedUsers = exists
+      ? currentUsers.map((u) =>
+          (u.email || '').trim().toLowerCase() === emailToBlock
+            ? { ...u, blocked: true }
+            : u
+        )
+      : [
+          {
+            id: `u_${Date.now()}`,
+            name: emailToBlock.split('@')[0],
+            email: emailToBlock,
+            password: '123456',
+            role: 'user' as const,
+            blocked: true,
+            createdAt: new Date().toISOString()
+          },
+          ...currentUsers
+        ];
+
+    await syncUsersEverywhere(
+      updatedUsers,
+      deletedList,
+      `User "${emailToBlock}" blocked! You can now manage or delete them in Blocked Users.`,
+      'info'
+    );
+  };
+
+  // Permanently delete a blocked user from Admin
+  const handleDeleteBlockedUser = async (emailOrId: string) => {
+    const targetKey = emailOrId.trim().toLowerCase();
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
+    const matchedUser = currentUsers.find(
+      (u) =>
+        String(u.id).toLowerCase() === targetKey ||
+        (u.email || '').trim().toLowerCase() === targetKey
+    );
+    const emailToDelete = (matchedUser?.email || emailOrId).trim().toLowerCase();
+    if (!emailToDelete) return;
+
+    let deletedList: string[] = [];
+    try {
+      const deletedRaw = localStorage.getItem('apex_deleted_user_emails');
+      deletedList = deletedRaw ? JSON.parse(deletedRaw) : [];
+      deletedList = deletedList.filter((e) => e.trim().toLowerCase() !== emailToDelete);
+
+      const permRaw = localStorage.getItem('apex_permanently_deleted_users');
+      const permList: string[] = permRaw ? JSON.parse(permRaw) : [];
+      if (!permList.includes(emailToDelete)) {
+        permList.push(emailToDelete);
+      }
+      localStorage.setItem('apex_permanently_deleted_users', JSON.stringify(permList));
+
+      const currUserRaw = localStorage.getItem('apex_current_user');
+      if (currUserRaw) {
+        const currUser = JSON.parse(currUserRaw);
+        if ((currUser?.email || '').trim().toLowerCase() === emailToDelete) {
+          localStorage.removeItem('apex_current_user');
+        }
+      }
+    } catch {}
+
     const updatedUsers = currentUsers.filter(
       (u) =>
         String(u.id).toLowerCase() !== targetKey &&
-        (u.email || '').trim().toLowerCase() !== emailToBlock
+        (u.email || '').trim().toLowerCase() !== emailToDelete
     );
 
     await syncUsersEverywhere(
       updatedUsers,
       deletedList,
-      `User "${emailToBlock}" deleted & permanently blocked from login!`,
+      `Blocked user "${emailToDelete}" permanently deleted from Admin!`,
       'info'
     );
   };
 
+  // Delete all blocked users permanently from Admin
+  const handleDeleteAllBlockedUsers = async () => {
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
+    let blockedSet = new Set<string>(
+      (state.deletedUserEmails || []).map((e) => e.trim().toLowerCase()).filter(Boolean)
+    );
+    try {
+      const deletedRaw = localStorage.getItem('apex_deleted_user_emails');
+      if (deletedRaw) {
+        const parsed: string[] = JSON.parse(deletedRaw);
+        parsed.forEach((e) => {
+          if (e) blockedSet.add(e.trim().toLowerCase());
+        });
+      }
+    } catch {}
+    currentUsers.forEach((u) => {
+      if (u.blocked && u.email) {
+        blockedSet.add(u.email.trim().toLowerCase());
+      }
+    });
+
+    try {
+      const permRaw = localStorage.getItem('apex_permanently_deleted_users');
+      const permList: string[] = permRaw ? JSON.parse(permRaw) : [];
+      const mergedPerm = Array.from(new Set([...permList, ...Array.from(blockedSet)]));
+      localStorage.setItem('apex_permanently_deleted_users', JSON.stringify(mergedPerm));
+    } catch {}
+
+    const remainingActiveUsers = currentUsers.filter(
+      (u) => !u.blocked && !blockedSet.has((u.email || '').trim().toLowerCase())
+    );
+
+    await syncUsersEverywhere(
+      remainingActiveUsers,
+      [],
+      'All blocked users permanently deleted from Admin!',
+      'info'
+    );
+  };
+
+  // Block all active users (moves all active users to Blocked Users)
   const handleClearAllUsers = async () => {
     let deletedList: string[] = [];
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
     try {
       const existingRaw = localStorage.getItem('apex_deleted_user_emails');
       const existing: string[] = existingRaw ? JSON.parse(existingRaw) : [];
       const allEmails = [
         ...existing,
-        ...(state.users || []).map((u) => (u.email || '').trim().toLowerCase()),
+        ...currentUsers.map((u) => (u.email || '').trim().toLowerCase()),
         ...(state.orders || []).map((o) => (o.email || '').trim().toLowerCase())
       ].filter(Boolean);
       deletedList = Array.from(new Set(allEmails));
       localStorage.removeItem('apex_current_user');
     } catch {}
-    await syncUsersEverywhere([], deletedList, 'All users deleted & blocked from login!', 'info');
+    const updatedUsers = currentUsers.map((u) => ({ ...u, blocked: true }));
+    await syncUsersEverywhere(updatedUsers, deletedList, 'All active users moved to Blocked Users!', 'info');
   };
 
   const handleSendUserOtp = async (email: string, customOtp?: string) => {
@@ -1934,7 +2068,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   const headerMeta = getTabHeader(currentTab);
 
   return (
-    <div className={`min-h-screen admin-theme-${adminTheme} bg-[#0a0a0f] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]`}>
+    <div className={`min-h-screen admin-dark-theme admin-theme-${adminTheme} bg-[#0a0a0f] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]`}>
       {/* Toast notifications */}
       <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
@@ -2103,7 +2237,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
               orders={state.orders}
               users={state.users || []}
               deletedUserEmails={state.deletedUserEmails || []}
-              mode={currentTab === 'users' ? 'users' : 'all'}
+              mode={currentTab === 'users' ? 'users' : 'orders'}
               onViewOrder={(order) => {
                 setSelectedOrder(order);
                 setOrderDetailOpen(true);
@@ -2112,7 +2246,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
               onDeleteOrder={handleDeleteOrder}
               onClearAllOrders={handleClearAllOrders}
               onAddUser={handleAddUser}
-              onDeleteUser={handleDeleteUser}
+              onBlockUser={handleBlockUser}
+              onDeleteUser={handleDeleteBlockedUser}
+              onDeleteAllBlockedUsers={handleDeleteAllBlockedUsers}
               onClearAllUsers={handleClearAllUsers}
               onSendUserOtp={handleSendUserVerificationOtp}
               onToggleUserVerified={handleToggleUserVerified}

@@ -8,7 +8,7 @@ export const AccountVerificationModal: React.FC = () => {
     registeredUsers,
     verifyUserAccountOtp,
     logout,
-    setAdminModalOpen,
+    adminModalOpen,
     showToast
   } = useStore();
 
@@ -38,7 +38,7 @@ export const AccountVerificationModal: React.FC = () => {
   }, [activeOtp, currentUser?.email]);
 
   // Only show Verification Gate when a non-admin user is logged in and NOT yet verified
-  if (!currentUser || isVerified) return null;
+  if (!currentUser || isVerified || adminModalOpen) return null;
 
   const handleVerifySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +202,7 @@ export const AccountVerificationModal: React.FC = () => {
                 Waiting for Admin to Send OTP...
               </p>
               <p className="text-[11px] text-purple-300/80 leading-relaxed">
-                Admin has received your signup request (<span className="text-white font-mono">{currentUser.email}</span>). As soon as Admin clicks <strong>Send OTP</strong> in the Admin Panel, your 6-digit OTP code will appear right here automatically!
+                Your signup request (<span className="text-white font-mono">{currentUser.email}</span>) has been received. As soon as your 6-digit verification OTP is dispatched, it will appear right here automatically!
               </p>
             </div>
           )}
@@ -253,25 +253,15 @@ export const AccountVerificationModal: React.FC = () => {
             </button>
           </form>
 
-          {/* Footer Actions: Switch Account or Open Admin Panel */}
-          <div className="pt-3 border-t border-purple-900/40 flex items-center justify-between gap-2">
+          {/* Footer Action: Switch Account / Sign Out Only (No Admin Panel button) */}
+          <div className="pt-3 border-t border-purple-900/40">
             <button
               type="button"
               onClick={logout}
-              className="px-3.5 py-2 rounded-xl bg-rose-950/50 hover:bg-rose-900/70 text-rose-300 border border-rose-800/40 text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5"
+              className="w-full py-2.5 px-4 rounded-xl bg-rose-950/50 hover:bg-rose-900/70 text-rose-300 border border-rose-800/40 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2"
             >
-              <i className="fa-solid fa-arrow-right-from-bracket text-[10px]" />
+              <i className="fa-solid fa-arrow-right-from-bracket text-xs" />
               <span>Sign Out / Switch Account</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAdminModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/70 text-purple-300 hover:text-white border border-purple-800/50 text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5"
-              title="Open Admin Panel to send OTP"
-            >
-              <i className="fa-solid fa-user-shield text-amber-400 text-[10px]" />
-              <span>Admin Panel</span>
             </button>
           </div>
         </div>

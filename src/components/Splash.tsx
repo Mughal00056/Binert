@@ -1,56 +1,74 @@
 import React, { useState, useEffect } from 'react';
 
-// Exact user-provided PNG for the loading screen
+// Official emblem for the 3D Square Splash Screen
 const SPLASH_PNG_URL = 'https://i.supaimg.com/0ffab3ca-b15e-48fd-a213-7db2aa7158cc/084b9ad6-dbbb-45c7-baf0-b38fc93b4325.png';
-
-const SYSTEM_LOGS = [
-  '⚡ [SYSTEM] Apex Hyper-Engine v6.0 Initializing...',
-  '🛡️ [SECURITY] 256-Bit SSL Payment Guard Active',
-  '💎 [CATALOG] 100% Verified Authentic Luxury Inventory Loaded',
-  '🚀 [STATUS] Systems Armed & Synced • Ready for Launch'
-];
+const FALLBACK_LOGO_URL = 'https://i.supaimg.com/0ffab3ca-b15e-48fd-a213-7db2aa7158cc/bb9ac2b2-70ac-461a-b3d7-1d8aabf1a38c.jpg';
 
 export const Splash: React.FC = () => {
-  const [visible, setVisible] = useState(() => {
-    return !sessionStorage.getItem('apex_splash_shown');
-  });
+  // Always show on every page refresh / load
+  const [visible, setVisible] = useState(true);
   const [fading, setFading] = useState(false);
-  const [progress, setProgress] = useState(15);
-  const [logIndex, setLogIndex] = useState(0);
+  const [progress, setProgress] = useState(5);
+  const [tilt, setTilt] = useState<{ rx: number; ry: number }>({ rx: 9, ry: -9 });
+
+  useEffect(() => {
+    const triggerSplashAgain = () => {
+      setFading(false);
+      setProgress(5);
+      setVisible(true);
+    };
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        triggerSplashAgain();
+      }
+    };
+
+    window.addEventListener('apex_trigger_splash', triggerSplashAgain);
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      window.removeEventListener('apex_trigger_splash', triggerSplashAgain);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
 
-    // Dynamic, fast cyber progress loader
+    // Smooth progress bar fill from 5% to 100%
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(progressInterval);
           return 100;
         }
-        const delta = Math.floor(Math.random() * 9) + 5;
+        const delta = Math.floor(Math.random() * 5) + 4;
         return Math.min(100, prev + delta);
+      });
+    }, 85);
+
+    // Autonomous 3D oscillation so the square cube rotates smoothly in 3D space
+    let angle = 0;
+    const tiltInterval = setInterval(() => {
+      angle += 0.12;
+      setTilt({
+        rx: Math.round(Math.sin(angle) * 8 * 10) / 10,
+        ry: Math.round(Math.cos(angle) * 10 * 10) / 10
       });
     }, 55);
 
-    // Cycling high-tech telemetry logs
-    const logInterval = setInterval(() => {
-      setLogIndex((prev) => (prev + 1) % SYSTEM_LOGS.length);
-    }, 420);
-
-    // Automatic smooth fade-out
+    // Smooth fade-out after loading completes (~3.2s)
     const fadeTimer = setTimeout(() => {
       setFading(true);
-      sessionStorage.setItem('apex_splash_shown', 'true');
-    }, 2400);
+    }, 3200);
 
     const removeTimer = setTimeout(() => {
       setVisible(false);
-    }, 2850);
+    }, 3650);
 
     return () => {
       clearInterval(progressInterval);
-      clearInterval(logInterval);
+      clearInterval(tiltInterval);
       clearTimeout(fadeTimer);
       clearTimeout(removeTimer);
     };
@@ -58,128 +76,147 @@ export const Splash: React.FC = () => {
 
   const handleEnter = () => {
     setFading(true);
-    sessionStorage.setItem('apex_splash_shown', 'true');
     setTimeout(() => setVisible(false), 280);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({
+      rx: -y * 20,
+      ry: x * 20
+    });
   };
 
   if (!visible) return null;
 
   return (
     <div
-      onClick={handleEnter}
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden transition-all duration-500 ease-out select-none cursor-pointer ${
+      onMouseMove={handleMouseMove}
+      className={`fixed inset-0 z-[99999] flex items-center justify-center p-4 overflow-hidden transition-all duration-500 ease-out select-none ${
         fading
           ? 'opacity-0 pointer-events-none scale-105 filter blur-sm'
           : 'opacity-100 scale-100'
       }`}
       style={{
-        background: 'radial-gradient(circle at 50% 45%, #190933 0%, #0d041c 50%, #04010a 100%)'
+        background: 'radial-gradient(circle at 50% 45%, #1a0936 0%, #0b0418 55%, #040109 100%)',
+        perspective: '1200px'
       }}
     >
-      {/* Background Animated Cyber Mesh & Nebula Radiance */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-70">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-purple-600/35 via-fuchsia-600/25 to-indigo-600/20 rounded-full blur-[110px] animate-pulse" />
-        <div className="absolute bottom-10 left-10 w-80 h-80 bg-purple-900/30 rounded-full blur-3xl" />
-        <div className="absolute top-10 right-10 w-80 h-80 bg-fuchsia-900/30 rounded-full blur-3xl" />
+      {/* Ambient 3D Depth Glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-80">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] bg-gradient-to-tr from-purple-600/40 via-fuchsia-600/30 to-indigo-600/20 rounded-3xl rotate-12 blur-[100px] animate-pulse" />
       </div>
 
-      {/* Cyber Matrix Subtle Grid */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-[0.05]"
+      {/* 3D Square Perspective Wrapper */}
+      <div
+        className="relative z-10 transition-transform duration-150 ease-out"
         style={{
-          backgroundImage: 'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)',
-          backgroundSize: '36px 36px'
+          transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
+          transformStyle: 'preserve-3d'
         }}
-      />
+      >
+        {/* 3D Extruded Back Shadow Layers (Square Cube Depth) */}
+        <div
+          className="absolute inset-0 rounded-3xl bg-purple-950/85 border-2 border-purple-500/45 pointer-events-none"
+          style={{
+            transform: 'translateZ(-32px) translateY(16px) scale(0.95)',
+            boxShadow: '0 35px 85px rgba(0, 0, 0, 0.95), 0 0 65px rgba(168, 85, 247, 0.5)'
+          }}
+        />
+        <div
+          className="absolute inset-0 rounded-3xl bg-[#160a2e]/90 border border-fuchsia-500/45 pointer-events-none"
+          style={{
+            transform: 'translateZ(-16px) translateY(8px) scale(0.975)'
+          }}
+        />
 
-      {/* Central Powerful Showcase */}
-      <div className="relative z-10 flex flex-col items-center max-w-md px-6 text-center animate-[slideUpFade_0.4s_cubic-bezier(0.22,1,0.36,1)]">
-        
-        {/* Holographic Glowing Showcase Container for user PNG */}
-        <div className="relative mb-6 flex items-center justify-center">
-          {/* Outer Pulsing Rotating Glow Rings */}
-          <div className="absolute -inset-7 rounded-full border-2 border-purple-500/30 animate-[spin_10s_linear_infinite] pointer-events-none shadow-[0_0_40px_rgba(168,85,247,0.35)]" />
-          <div className="absolute -inset-4 rounded-full border border-dashed border-fuchsia-400/50 animate-[spin_6s_linear_infinite_reverse] pointer-events-none" />
+        {/* MAIN 3D SQUARE CARD (Strict 1:1 Square Aspect Ratio) */}
+        <div
+          className="w-[310px] h-[310px] sm:w-[370px] sm:h-[370px] aspect-square rounded-3xl bg-gradient-to-br from-[#1b0c38] via-[#110722] to-[#090314] border-2 border-purple-400/75 shadow-[0_25px_70px_rgba(0,0,0,0.9),0_0_55px_rgba(168,85,247,0.6),inset_0_2px_20px_rgba(255,255,255,0.18)] flex flex-col items-center justify-between p-6 sm:p-7 text-center relative overflow-hidden"
+          style={{
+            transformStyle: 'preserve-3d'
+          }}
+        >
+          {/* Top 3D Bevel Highlight */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
+          <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-white/50 via-purple-400/20 to-transparent" />
 
-          {/* User PNG Display Card with Cyber Glow */}
-          <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-3xl bg-[#110826]/90 p-3 border-2 border-purple-400/70 shadow-[0_0_65px_rgba(168,85,247,0.85)] flex items-center justify-center relative group backdrop-blur-xl">
-            <img
-              src={SPLASH_PNG_URL}
-              alt="ApexStore Flagship Emblem"
-              className="w-full h-full object-contain pointer-events-none transition-transform duration-500 group-hover:scale-110 drop-shadow-[0_0_20px_rgba(192,132,252,0.9)]"
-              draggable={false}
-              onError={(e) => {
-                // Fallback gracefully if network drops
-                (e.target as HTMLImageElement).src = 'https://i.supaimg.com/0ffab3ca-b15e-48fd-a213-7db2aa7158cc/bb9ac2b2-70ac-461a-b3d7-1d8aabf1a38c.jpg';
-              }}
-            />
-            {/* Holographic dynamic light sweep shimmer */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent pointer-events-none animate-[pulse_2s_infinite] rounded-3xl" />
-          </div>
-
-          {/* Core Under-Glow Aura */}
-          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-36 h-7 bg-gradient-to-r from-purple-600 via-fuchsia-500 to-purple-600 rounded-full blur-xl opacity-90 animate-pulse" />
-        </div>
-
-        {/* Brand Header with Electric Gradient */}
-        <div className="space-y-1 mb-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-950/90 border border-purple-500/60 text-[10px] font-black uppercase tracking-[3px] text-purple-300 shadow-inner">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>OFFICIAL FLAGSHIP STORE</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white drop-shadow-[0_2px_20px_rgba(168,85,247,0.7)]">
-            APEX<span className="bg-gradient-to-r from-purple-400 via-fuchsia-300 to-amber-200 bg-clip-text text-transparent">STORE</span>
-          </h1>
-
-          <p className="text-xs sm:text-sm font-semibold tracking-wide text-purple-200/90 uppercase">
-            The Pinnacle of Luxury Shopping
-          </p>
-        </div>
-
-        {/* Live Cyber Diagnostic Telemetry Log */}
-        <div className="w-full max-w-xs bg-black/70 backdrop-blur-md rounded-xl border border-purple-700/60 py-1.5 px-3.5 mb-4 min-h-[30px] flex items-center justify-center">
-          <span className="text-[11px] font-mono text-purple-300 truncate">
-            {SYSTEM_LOGS[logIndex]}
-          </span>
-        </div>
-
-        {/* High-Voltage Dynamic Progress Bar */}
-        <div className="w-full max-w-xs mb-5">
-          <div className="flex items-center justify-between text-[11px] font-mono font-bold text-purple-300 mb-1.5 px-1">
-            <span className="flex items-center gap-1.5">
-              <i className="fa-solid fa-bolt text-amber-300 text-[10px] animate-pulse" />
-              <span>CORE BOOT</span>
-            </span>
-            <span className="text-white font-black">{progress}%</span>
-          </div>
-          <div className="w-full bg-[#150a2b] h-2.5 rounded-full overflow-hidden border border-purple-600/70 p-0.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.7)]">
-            <div
-              className="h-full bg-gradient-to-r from-purple-600 via-fuchsia-400 to-amber-300 rounded-full transition-all duration-100 ease-out shadow-[0_0_18px_rgba(217,70,239,1)]"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        {/* ENTER STORE Powerful CTA */}
-        <div className="flex flex-col items-center gap-2">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEnter();
-            }}
-            className="group px-8 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-purple-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-black text-xs sm:text-sm uppercase tracking-widest shadow-xl shadow-purple-950/90 border border-purple-400/60 hover:border-purple-300 transition-all duration-200 active:scale-95 cursor-pointer flex items-center gap-2.5"
+          {/* Top Status Pill Floating in 3D */}
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-purple-950/90 border border-purple-400/50 text-[9px] font-black uppercase tracking-[2.5px] text-purple-200 shadow-lg"
+            style={{ transform: 'translateZ(26px)' }}
           >
-            <span>ENTER STORE NOW</span>
-            <i className="fa-solid fa-arrow-right text-xs group-hover:translate-x-1.5 transition-transform" />
-          </button>
+            <span className="w-2 h-2 rounded-sm bg-emerald-400 animate-pulse" />
+            <span>APEX 3D SQUARE</span>
+          </div>
 
-          <span className="text-[10px] font-semibold text-purple-400/70 uppercase tracking-widest mt-0.5">
-            Tap anywhere to skip
-          </span>
+          {/* Center 3D Square Emblem Cube */}
+          <div
+            className="relative my-1 flex items-center justify-center"
+            style={{ transform: 'translateZ(46px)' }}
+          >
+            {/* Outer Square 3D Frames */}
+            <div className="absolute -inset-2.5 rounded-2xl border border-purple-400/45 rotate-6 pointer-events-none bg-purple-500/5" />
+            <div className="absolute -inset-2.5 rounded-2xl border border-fuchsia-400/45 -rotate-6 pointer-events-none bg-fuchsia-500/5" />
+
+            {/* Inner 3D Square Logo Box */}
+            <div className="w-24 h-24 sm:w-28 sm:h-28 aspect-square rounded-2xl bg-[#0d051d] p-2.5 border-2 border-purple-300/85 shadow-[0_14px_35px_rgba(0,0,0,0.85),0_0_35px_rgba(192,132,252,0.85),inset_0_2px_10px_rgba(255,255,255,0.28)] flex items-center justify-center relative overflow-hidden">
+              <img
+                src={SPLASH_PNG_URL}
+                alt="ApexStore 3D Square Emblem"
+                className="w-full h-full object-contain pointer-events-none drop-shadow-[0_8px_16px_rgba(168,85,247,0.9)]"
+                draggable={false}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = FALLBACK_LOGO_URL;
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent pointer-events-none" />
+            </div>
+          </div>
+
+          {/* 3D Brand Title */}
+          <div
+            className="space-y-0.5"
+            style={{ transform: 'translateZ(34px)' }}
+          >
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-[0_6px_16px_rgba(0,0,0,0.9)]">
+              APEX<span className="bg-gradient-to-r from-purple-300 via-fuchsia-300 to-amber-200 bg-clip-text text-transparent">STORE</span>
+            </h1>
+            <p className="text-[10px] sm:text-[11px] font-bold tracking-widest text-purple-300/90 uppercase">
+              Verified 3D Digital &amp; Luxury Store
+            </p>
+          </div>
+
+          {/* Bottom 3D Progress & Enter Button */}
+          <div
+            className="w-full space-y-2.5"
+            style={{ transform: 'translateZ(30px)' }}
+          >
+            <div className="w-full">
+              <div className="flex items-center justify-between text-[10px] font-mono font-black text-purple-200 mb-1 px-0.5">
+                <span>LOADING 3D STORE</span>
+                <span className="text-amber-300">{progress}%</span>
+              </div>
+              <div className="w-full bg-[#090314] h-2.5 rounded-lg overflow-hidden border border-purple-500/60 p-0.5 shadow-inner">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-600 via-fuchsia-400 to-amber-300 rounded-md transition-all duration-100 ease-out shadow-[0_0_12px_rgba(217,70,239,0.9)]"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleEnter}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-purple-600 hover:from-purple-500 hover:to-fuchsia-500 text-white font-black text-xs uppercase tracking-widest shadow-[0_8px_20px_rgba(88,28,135,0.8)] border border-purple-300/50 transition active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>ENTER STORE</span>
+              <i className="fa-solid fa-cube text-xs" />
+            </button>
+          </div>
         </div>
-
       </div>
     </div>
   );

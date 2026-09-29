@@ -87,7 +87,7 @@ export const PaymentTimerModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out] overflow-y-auto">
+    <div className="fixed inset-0 z-[190] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out] overflow-y-auto">
       <div className="relative w-full max-w-lg bg-[#13131a] rounded-3xl overflow-hidden border border-purple-800/50 shadow-2xl shadow-purple-950/80 my-auto flex flex-col max-h-[92vh] animate-[slideUpFade_0.3s_cubic-bezier(0.22,1,0.36,1)]">
         
         {/* Header with prominent [X] Close button */}

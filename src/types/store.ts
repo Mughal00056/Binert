@@ -57,6 +57,7 @@ export interface RegisteredUserRecord {
   verificationOtp?: string;
   verificationOtpSentAt?: string;
   verifiedAt?: string;
+  blocked?: boolean;
 }
 
 export interface OrderItem {

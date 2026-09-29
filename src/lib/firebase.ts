@@ -64,10 +64,24 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
 
   const isInitialized = Boolean(data.updatedAt);
 
+  const permanentlyDeletedUsers = new Set(
+    getLocalList<string>('apex_permanently_deleted_users')
+      .map((e) => String(e).trim().toLowerCase())
+      .filter(Boolean)
+  );
+
   const remoteDeletedUsers = normalizeArray<string>(data.deletedUserEmails, []);
   const localDeletedUsers = getLocalList<string>('apex_deleted_user_emails');
+  const rawBlockedEmails =
+    localDeletedUsers.length > 0 || data.deletedUserEmails === undefined
+      ? [...remoteDeletedUsers, ...localDeletedUsers]
+      : remoteDeletedUsers;
   const deletedUserEmails = Array.from(
-    new Set([...remoteDeletedUsers, ...localDeletedUsers].map((e) => String(e).trim().toLowerCase()).filter(Boolean))
+    new Set(
+      rawBlockedEmails
+        .map((e) => String(e).trim().toLowerCase())
+        .filter((e) => Boolean(e) && !permanentlyDeletedUsers.has(e))
+    )
   );
 
   const remoteDeletedOrders = normalizeArray<string>(data.deletedOrderIds, []);
@@ -100,17 +114,15 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
   const parsedOrders = normalizeOrders(data.orders);
   const localOrders = normalizeOrders(getLocalList<Order>('apex_orders'));
   const mergedOrderMap = new Map<string, Order>();
-  if (!data.ordersCleared || parsedOrders.length > 0) {
-    for (const lo of localOrders) {
-      if (lo && lo.id !== undefined && !deletedOrderSet.has(String(lo.id))) {
-        mergedOrderMap.set(String(lo.id), { ...lo, id: String(lo.id) });
-      }
+  for (const lo of localOrders) {
+    if (lo && lo.id !== undefined && !deletedOrderSet.has(String(lo.id))) {
+      mergedOrderMap.set(String(lo.id), { ...lo, id: String(lo.id) });
     }
-    for (const ro of parsedOrders) {
-      if (ro && ro.id !== undefined && !deletedOrderSet.has(String(ro.id))) {
-        const prev = mergedOrderMap.get(String(ro.id));
-        mergedOrderMap.set(String(ro.id), { ...(prev || {}), ...ro, id: String(ro.id) });
-      }
+  }
+  for (const ro of parsedOrders) {
+    if (ro && ro.id !== undefined && !deletedOrderSet.has(String(ro.id))) {
+      const prev = mergedOrderMap.get(String(ro.id));
+      mergedOrderMap.set(String(ro.id), { ...(prev || {}), ...ro, id: String(ro.id) });
     }
   }
   const orders = Array.from(mergedOrderMap.values()).sort((a, b) => {
@@ -127,22 +139,30 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
       : INITIAL_STORE_STATE.categories || [];
   const categories = rawCategories.filter((c) => c && !deletedCatSet.has(String(c.id)));
 
-  const parsedUsers =
-    data.users !== undefined
-      ? normalizeArray(data.users, [])
-      : (() => {
-          if (typeof window !== 'undefined') {
-            try {
-              const localUsers = localStorage.getItem('apex_registered_users');
-              if (localUsers) return JSON.parse(localUsers);
-            } catch {}
-          }
-          return isInitialized ? [] : INITIAL_STORE_STATE.users || [];
-        })();
-  const rawUsers = data.usersCleared && parsedUsers.length === 0 ? [] : parsedUsers;
-  const users = rawUsers.filter(
-    (u) => u && u.email && !deletedUserSet.has(String(u.email).trim().toLowerCase())
-  );
+  const parsedUsers = normalizeArray(data.users, []);
+  const localUsers = getLocalList<any>('apex_registered_users');
+  const mergedUsersMap = new Map<string, any>();
+  for (const lu of localUsers) {
+    const em = String(lu?.email || '').trim().toLowerCase();
+    if (em && !permanentlyDeletedUsers.has(em)) {
+      mergedUsersMap.set(em, {
+        ...lu,
+        blocked: Boolean(lu.blocked || deletedUserSet.has(em))
+      });
+    }
+  }
+  for (const ru of parsedUsers) {
+    const em = String(ru?.email || '').trim().toLowerCase();
+    if (em && !permanentlyDeletedUsers.has(em)) {
+      const prev = mergedUsersMap.get(em);
+      mergedUsersMap.set(em, {
+        ...(prev || {}),
+        ...ru,
+        blocked: Boolean(ru.blocked || prev?.blocked || deletedUserSet.has(em))
+      });
+    }
+  }
+  const users = Array.from(mergedUsersMap.values());
 
   return {
     products,
@@ -191,9 +211,9 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
     deletedOrderIds,
     deletedProductIds,
     deletedCategoryIds,
-    ordersCleared: Boolean(data.ordersCleared),
-    usersCleared: Boolean(data.usersCleared),
-    productsCleared: Boolean(data.productsCleared),
+    ordersCleared: Boolean(data.ordersCleared) && orders.length === 0,
+    usersCleared: Boolean(data.usersCleared) && users.length === 0,
+    productsCleared: Boolean(data.productsCleared) && products.length === 0,
     updatedAt: data.updatedAt || Date.now()
   };
 }

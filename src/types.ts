@@ -220,6 +220,7 @@ export interface UserProfile {
   verificationOtp?: string;
   verificationOtpSentAt?: string;
   verifiedAt?: string;
+  blocked?: boolean;
 }
 
 export interface LaunchConfig {

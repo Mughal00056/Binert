@@ -171,7 +171,7 @@ export const CartDrawer: React.FC = () => {
               className="w-full bg-gradient-to-r from-purple-700 via-purple-600 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-500 text-white font-black text-xs sm:text-sm tracking-wider uppercase py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(168,85,247,0.5)] transition active:scale-[0.98] cursor-pointer"
             >
               <i className="fa-solid fa-play text-xs" />
-              <span>PROCEED TO CHECKOUT</span>
+              <span>PROCEED TO PAYMENT</span>
             </button>
           </div>
         )}

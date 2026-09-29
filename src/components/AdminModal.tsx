@@ -432,6 +432,17 @@ export const AdminModal: React.FC = () => {
                                 </>
                               )}
 
+                              {order.status !== 'delivered' && order.status !== 'rejected' && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateOrderStatus(order.id, 'delivered')}
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-2 px-3.5 rounded-xl uppercase transition cursor-pointer flex items-center gap-1.5 shadow-md"
+                                >
+                                  <i className="fa-solid fa-circle-check" />
+                                  <span>Deliver &amp; Send Receipt</span>
+                                </button>
+                              )}
+
                               {order.status === 'delivered' && (
                                 <div className="bg-emerald-950/60 border border-emerald-500/50 px-3 py-1.5 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
                                   <i className="fa-solid fa-circle-check text-xs" />

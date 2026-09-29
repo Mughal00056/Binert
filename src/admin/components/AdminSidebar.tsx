@@ -169,7 +169,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }`}
               >
                 <i className="fa-solid fa-users-gear w-5 text-fuchsia-400"></i>
-                <span className="font-bold text-xs sm:text-sm">Users &amp; Delete</span>
+                <span className="font-bold text-xs sm:text-sm">Users Management</span>
                 {counts.users !== undefined && (
                   <span className="ml-auto bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40 text-[10px] font-black px-2 py-0.5 rounded-full">
                     {counts.users}

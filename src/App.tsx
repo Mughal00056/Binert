@@ -42,8 +42,8 @@ const StorefrontLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-slate-200 flex flex-col font-sans selection:bg-purple-600 selection:text-white relative">
-      {/* 1. Splash Screen Feature */}
-      {featureToggles.splash && <Splash />}
+      {/* 1. 3D Square Splash Screen (Always shown on refresh) */}
+      <Splash />
 
       {/* 2. Global Header */}
       <Header />
@@ -100,8 +100,7 @@ const StorefrontLayout: React.FC = () => {
 
       <PaymentModal />
       <PaymentTimerModal />
-
-      {featureToggles.receiptDownload && <ReceiptModal />}
+      <ReceiptModal />
       <AuthModal />
       <AccountVerificationModal />
       <AdminModal />

@@ -472,12 +472,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 map.set(String(po.id), po);
               }
             });
+            let newlyDelivered: Order | null = null;
             filtered.forEach((fo) => {
               if (fo && !deletedOrders.has(String(fo.id))) {
                 const existing = map.get(String(fo.id));
-                map.set(String(fo.id), { ...(existing || {}), ...fo, id: Number.isNaN(Number(fo.id)) ? fo.id : Number(fo.id) } as Order);
+                const merged = {
+                  ...(existing || {}),
+                  ...fo,
+                  id: Number.isNaN(Number(fo.id)) ? fo.id : Number(fo.id)
+                } as Order;
+                if (existing && existing.status !== 'delivered' && merged.status === 'delivered') {
+                  newlyDelivered = merged;
+                }
+                map.set(String(fo.id), merged);
               }
             });
+            if (newlyDelivered) {
+              setReceiptOrder(newlyDelivered);
+            }
             return Array.from(map.values()).sort(
               (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             );
@@ -558,15 +570,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             (u) => (u.email || '').trim().toLowerCase() === currEmail
           );
           if (!stillExists) {
-            try {
-              localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
-            } catch {}
-            return null;
+            return curr;
           }
           const updatedCurr: UserProfile = {
             ...curr,
             ...stillExists,
-            verified: Boolean(stillExists.verified || stillExists.role === 'admin'),
+            verified: Boolean(stillExists.verified),
             verificationOtp: stillExists.verificationOtp ?? curr.verificationOtp,
             verificationOtpSentAt: stillExists.verificationOtpSentAt ?? curr.verificationOtpSentAt,
             verifiedAt: stillExists.verifiedAt ?? curr.verifiedAt
@@ -714,7 +723,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const syncUsersToFirebase = (usersList: UserProfile[]) => {
     const deletedEmails = getDeletedEmailsSet();
     const cleanList = usersList.filter(
-      (u) => u && u.email && !deletedEmails.has(u.email.trim().toLowerCase())
+      (u) => u && u.email
     );
     try {
       localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(cleanList));
@@ -733,7 +742,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         verified: Boolean(u.verified || u.role === 'admin'),
         verificationOtp: u.verificationOtp || '',
         verificationOtpSentAt: u.verificationOtpSentAt || '',
-        verifiedAt: u.verifiedAt || ''
+        verifiedAt: u.verifiedAt || '',
+        blocked: Boolean(u.blocked || deletedEmails.has(u.email.trim().toLowerCase()))
       })),
       usersCleared: cleanList.length === 0
     }).catch(() => {});
@@ -747,16 +757,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: 'Please enter your email address.' };
     }
 
-    // Check if Admin deleted this user account
+    // Check if Admin blocked this user account
     const deletedEmails = getDeletedEmailsSet();
-    if (deletedEmails.has(cleanEmail)) {
+    const matched = registeredUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (deletedEmails.has(cleanEmail) || matched?.blocked) {
       return {
         success: false,
-        error: 'This account has been deleted by Admin and can no longer sign in.'
+        error: 'This account has been blocked by Admin and cannot sign in.'
       };
     }
 
-    const matched = registeredUsers.find((u) => u.email.toLowerCase() === cleanEmail);
     if (!matched) {
       if (cleanEmail && cleanPass.length >= 4) {
         const isAdminRole = cleanEmail.includes('founder') || cleanEmail.includes('admin');
@@ -827,41 +837,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: 'Password must be at least 4 characters.' };
     }
 
-    // Block signup if Admin deleted this user
+    // Unblock if email was previously in deleted/blocked list so new signup works cleanly
     const deletedEmails = getDeletedEmailsSet();
     if (deletedEmails.has(cleanEmail)) {
-      return {
-        success: false,
-        error: 'This account was deleted by Admin and cannot be registered again.'
-      };
+      deletedEmails.delete(cleanEmail);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_DELETED_USERS, JSON.stringify(Array.from(deletedEmails)));
+      } catch {}
     }
+    try {
+      const permRaw = localStorage.getItem('apex_permanently_deleted_users');
+      if (permRaw) {
+        const permList: string[] = JSON.parse(permRaw);
+        const filteredPerm = permList.filter((e) => e.trim().toLowerCase() !== cleanEmail);
+        localStorage.setItem('apex_permanently_deleted_users', JSON.stringify(filteredPerm));
+      }
+    } catch {}
 
-    const exists = registeredUsers.some((u) => u.email.toLowerCase() === cleanEmail);
-    if (exists) {
-      return { success: false, error: 'An account with this email already exists. Please sign in.' };
-    }
-
-    const isAdminRole = cleanEmail.includes('founder') || cleanEmail.includes('admin');
+    const existingUser = registeredUsers.find((u) => u.email.toLowerCase() === cleanEmail);
     const newUser: UserProfile = {
-      id: `u_${Date.now()}`,
+      id: existingUser?.id || `u_${Date.now()}`,
       name: cleanName,
       email: cleanEmail,
       password: cleanPass,
-      role: isAdminRole ? 'admin' : 'user',
-      verified: isAdminRole ? true : false, // Strictly UNVERIFIED until Admin sends OTP and user verifies!
+      role: 'user',
+      verified: false, // Strictly UNVERIFIED on signup until Admin sends OTP and user verifies!
+      blocked: false,
+      verificationOtp: undefined,
+      verificationOtpSentAt: undefined,
+      verifiedAt: undefined,
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString()
     };
 
-    const updated = [...registeredUsers, newUser];
+    const updated = existingUser
+      ? registeredUsers.map((u) => (u.email.toLowerCase() === cleanEmail ? newUser : u))
+      : [newUser, ...registeredUsers];
+
     setRegisteredUsers(updated);
-    localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(updated));
+    try {
+      localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(updated));
+    } catch {}
     syncUsersToFirebase(updated);
     setCurrentUser(newUser);
-    localStorage.setItem(LOCAL_STORAGE_CURRENT_USER, JSON.stringify(newUser));
-    if (newUser.verified) {
-      handlePendingAddToCart(newUser);
-    }
+    try {
+      localStorage.setItem(LOCAL_STORAGE_CURRENT_USER, JSON.stringify(newUser));
+    } catch {}
 
     return { success: true };
   };
@@ -1180,17 +1201,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             email: ru.email,
             password: ru.password || '',
             role: ru.role || 'user',
-            verified: Boolean(ru.verified || ru.role === 'admin'),
+            verified: Boolean(ru.verified),
             verificationOtp: ru.verificationOtp,
             verificationOtpSentAt: ru.verificationOtpSentAt,
             verifiedAt: ru.verifiedAt,
             createdAt: ru.createdAt || new Date().toISOString(),
             lastLoginAt: ru.lastLoginAt
           }));
-        setRegisteredUsers(remoteUsers);
-        try {
-          localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(remoteUsers));
-        } catch {}
+        setRegisteredUsers((prevUsers) => {
+          const mergedMap = new Map<string, UserProfile>();
+          for (const pu of prevUsers) {
+            const em = (pu?.email || '').trim().toLowerCase();
+            if (em && !deletedEmails.has(em)) {
+              mergedMap.set(em, pu);
+            }
+          }
+          for (const ru of remoteUsers) {
+            const em = (ru?.email || '').trim().toLowerCase();
+            if (em && !deletedEmails.has(em)) {
+              const existing = mergedMap.get(em);
+              mergedMap.set(em, { ...(existing || {}), ...ru });
+            }
+          }
+          const finalUsers = Array.from(mergedMap.values());
+          try {
+            localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(finalUsers));
+          } catch {}
+          return finalUsers;
+        });
         setCurrentUser((curr) => {
           if (!curr) return null;
           const currEmail = (curr.email || '').trim().toLowerCase();
@@ -1204,15 +1242,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             (u) => (u.email || '').trim().toLowerCase() === currEmail
           );
           if (!stillExists) {
-            try {
-              localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
-            } catch {}
-            return null;
+            return curr;
           }
           const updatedCurr: UserProfile = {
             ...curr,
             ...stillExists,
-            verified: Boolean(stillExists.verified || stillExists.role === 'admin'),
+            verified: Boolean(stillExists.verified),
             verificationOtp: stillExists.verificationOtp ?? curr.verificationOtp,
             verificationOtpSentAt: stillExists.verificationOtpSentAt ?? curr.verificationOtpSentAt,
             verifiedAt: stillExists.verifiedAt ?? curr.verifiedAt
@@ -1246,13 +1281,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         (ro) => ro && !deletedOrders.has(String(ro.id))
       );
       setOrders((prevOrders) => {
-        if (data.ordersCleared && incomingOrders.length === 0) {
-          try {
-            localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify([]));
-          } catch {}
-          return [];
-        }
-
         const combinedMap = new Map<number, Order>();
         for (const po of prevOrders) {
           if (po && !deletedOrders.has(String(po.id))) {
@@ -1797,16 +1825,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     transactionId: string;
     proofUrl: string;
   }) => {
-    const buyerEmail = (currentUser?.email || details.email || '').trim().toLowerCase();
-    if (getDeletedEmailsSet().has(buyerEmail)) {
-      logout();
-      setPaymentModalOpen(false);
-      showToast('Your account was deleted by Admin and cannot place orders.', 'error');
-      return;
+    const buyerEmail = (currentUser?.email || details.email || 'customer@apexstore.pk').trim().toLowerCase();
+
+    // Unblock email if it was previously in deleted list so client order never fails
+    const deletedEmails = getDeletedEmailsSet();
+    if (deletedEmails.has(buyerEmail)) {
+      deletedEmails.delete(buyerEmail);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_DELETED_USERS, JSON.stringify(Array.from(deletedEmails)));
+      } catch {}
     }
 
     const orderId = Date.now();
-    const effectiveProof = details.proofUrl.trim() || 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&auto=format&fit=crop&q=80';
+    const effectiveProof =
+      details.proofUrl.trim() ||
+      'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&auto=format&fit=crop&q=80';
     const effectiveTrxId = details.transactionId.trim() || `APX-${Date.now().toString().slice(-6)}`;
     const expiresAt = Date.now() + 180 * 1000; // 3 minutes countdown for merchant review
 
@@ -1815,7 +1848,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const buyerName =
       currentUser?.name ||
       matchedRegUser?.name ||
-      (buyerEmail ? buyerEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : 'Verified Buyer');
+      (buyerEmail
+        ? buyerEmail
+            .split('@')[0]
+            .replace(/[._]/g, ' ')
+            .replace(/\b\w/g, (l) => l.toUpperCase())
+        : 'Verified Buyer');
 
     const newOrder: Order = {
       id: orderId,
@@ -1871,14 +1909,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         email: buyerEmail,
         password: buyerPassword,
         role: currentUser?.role || matchedRegUser?.role || 'user',
-        verified: Boolean(currentUser?.verified || matchedRegUser?.verified || currentUser?.role === 'admin'),
+        verified: Boolean(currentUser?.verified ?? matchedRegUser?.verified ?? true),
         verificationOtp: currentUser?.verificationOtp || matchedRegUser?.verificationOtp,
         createdAt: currentUser?.createdAt || matchedRegUser?.createdAt || new Date().toISOString(),
         lastLoginAt: new Date().toISOString()
       };
       nextUsersList = matchedRegUser
         ? registeredUsers.map((u) => (u.email.toLowerCase() === buyerEmail ? userRecord : u))
-        : [...registeredUsers, userRecord];
+        : [userRecord, ...registeredUsers];
       setRegisteredUsers(nextUsersList);
       try {
         localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(nextUsersList));
@@ -1891,49 +1929,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // Save order in state, localStorage & Firebase RTDB BEFORE opening Timer Modal so no sync overwrites it
-    setOrders((prev) => {
-      const filteredPrev = prev.filter((o) => String(o.id) !== String(orderId));
-      const updated = [newOrder, ...filteredPrev];
-      try {
-        localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(updated));
-      } catch {}
-      updateFirebasePartial({
-        orders: updated.map((o) => ({ ...o, id: String(o.id) })),
-        ordersCleared: false,
-        users: nextUsersList.map((u) => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          password: u.password || '',
-          role: u.role || 'user',
-          verified: Boolean(u.verified || u.role === 'admin'),
-          verificationOtp: u.verificationOtp || '',
-          createdAt: u.createdAt,
-          lastLoginAt: u.lastLoginAt || new Date().toISOString()
-        })),
-        usersCleared: false
-      }).catch(() => {});
-      return updated;
-    });
+    // Build updated orders & notifications synchronously before React commit or Firebase sync
+    const nextOrders = [newOrder, ...orders.filter((o) => String(o.id) !== String(orderId))];
+    const orderNotif: StoreNotification = {
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: 'order',
+      icon: 'fa-hourglass-start',
+      title: `Order #${String(orderId).slice(-6)} Submitted`,
+      desc: `Payment of ${formatPKR(cartTotal)} submitted! Admin verification timer started (3m).`,
+      time: Date.now(),
+      active: true,
+      targetEmail: buyerEmail,
+      orderId
+    };
+    const nextNotifications = [orderNotif, ...notifications];
 
-    // Open Payment Timer Modal immediately after payment submission
+    try {
+      localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(nextOrders));
+      localStorage.setItem(LOCAL_STORAGE_NOTIFS, JSON.stringify(nextNotifications));
+    } catch {}
+
+    setOrders(nextOrders);
+    setNotifications(nextNotifications);
     setCurrentOrder(newOrder);
     setOrderStatus('pending');
     setActiveTimerOrderId(orderId);
     setPaymentModalOpen(false);
     setTimerModalOpen(true);
     clearCart();
+    showToast(`Order #${String(orderId).slice(-6)} submitted! Timer started.`, 'success');
 
-    // Private notification for this buyer only
-    addNotification(
-      `Order #${String(orderId).slice(-6)} Submitted`,
-      `Payment of ${formatPKR(cartTotal)} submitted! Admin verification timer started (3m).`,
-      'order',
-      'fa-hourglass-start',
-      buyerEmail,
-      orderId
-    );
+    // Single atomic Firebase sync with ordersCleared: false so notifications never overwrite orders
+    updateFirebasePartial({
+      orders: nextOrders.map((o) => ({ ...o, id: String(o.id) })),
+      ordersCleared: false,
+      users: nextUsersList.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        password: u.password || '',
+        role: u.role || 'user',
+        verified: Boolean(u.verified),
+        verificationOtp: u.verificationOtp || '',
+        createdAt: u.createdAt,
+        lastLoginAt: u.lastLoginAt || new Date().toISOString()
+      })),
+      usersCleared: false,
+      notifications: nextNotifications
+    }).catch(() => {});
   };
 
   // Admin action: Send OTP to specific customer & order one-by-one
@@ -2069,16 +2112,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Admin action: Advance order tracking status (Preparing -> Shipped -> Delivered)
   const adminUpdateTracking = (orderId: number, status: OrderStatus, trackingNum?: string) => {
     const tracking = trackingNum || `APX-TRK-${Math.floor(100000 + Math.random() * 900000)}`;
+    let deliveredOrderRecord: Order | null = null;
 
     setOrders((prev) => {
       const updated = prev.map((o) => {
-        if (o.id === orderId) {
+        if (String(o.id) === String(orderId)) {
           const timeline = o.timeline || [];
           let title = '';
           let note = '';
           if (status === 'delivered') {
-            title = 'Order Delivered';
-            note = 'Order completed and delivered to customer.';
+            title = 'Order Delivered — Product Link & Package Ready';
+            note = 'Order completed and delivered to customer with Product Link & Download.';
           } else if (status === 'rejected') {
             title = 'Payment Rejected';
             note = trackingNum || 'Merchant declined payment proof or transaction ID.';
@@ -2087,10 +2131,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             note = `Status changed to ${status}`;
           }
 
-          return {
+          const defaultProdName = o.items?.map((it) => it.name).join(', ') || 'ApexStore Verified Product';
+          const defaultProdLink =
+            o.deliveryInfo?.productLink ||
+            o.productLink ||
+            o.items?.[0]?.productUrl ||
+            `${window.location.origin}/#product-${o.items?.[0]?.productId || o.items?.[0]?.id || o.id}`;
+          const finalDeliveryInfo =
+            status === 'delivered'
+              ? {
+                  productName: o.deliveryInfo?.productName || defaultProdName,
+                  productLink: defaultProdLink,
+                  downloadUrl: o.deliveryInfo?.downloadUrl || defaultProdLink,
+                  fileName:
+                    o.deliveryInfo?.fileName ||
+                    `ApexStore_${String(o.id).slice(-6)}_Delivery_Package.html`,
+                  licenseKey:
+                    o.deliveryInfo?.licenseKey ||
+                    `APX-KEY-${String(o.id).slice(-6).toUpperCase()}`,
+                  deliveryNote:
+                    o.deliveryInfo?.deliveryNote ||
+                    'Your order has been verified and delivered by Admin! Use your Product Link or Download Package button to access your product.',
+                  deliveredAt: new Date().toISOString()
+                }
+              : o.deliveryInfo;
+
+          const updatedOrder: Order = {
             ...o,
             status,
             trackingNumber: status === 'delivered' ? tracking : o.trackingNumber,
+            deliveryInfo: finalDeliveryInfo,
+            productName: finalDeliveryInfo?.productName || o.productName,
+            productLink: finalDeliveryInfo?.productLink || o.productLink,
+            downloadUrl: finalDeliveryInfo?.downloadUrl || o.downloadUrl,
+            licenseKey: finalDeliveryInfo?.licenseKey || o.licenseKey,
+            deliveryDetails: finalDeliveryInfo?.deliveryNote || o.deliveryDetails,
             timeline: [
               ...timeline,
               {
@@ -2102,21 +2177,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               }
             ]
           };
+          if (status === 'delivered') {
+            deliveredOrderRecord = updatedOrder;
+          }
+          return updatedOrder;
         }
         return o;
       });
+      try {
+        localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(updated));
+        window.dispatchEvent(new Event('apex_orders_updated'));
+      } catch {}
       updateFirebasePartial({
         orders: updated.map((o) => ({ ...o, id: String(o.id) }))
       }).catch(() => {});
       return updated;
     });
 
-    if (currentOrder && currentOrder.id === orderId) {
-      setCurrentOrder((prev) => (prev ? { ...prev, status, trackingNumber: tracking } : null));
+    if (currentOrder && String(currentOrder.id) === String(orderId)) {
+      setCurrentOrder((prev) =>
+        prev ? (deliveredOrderRecord || { ...prev, status, trackingNumber: tracking }) : null
+      );
       setOrderStatus(status);
     }
 
-    const foundOrder = orders.find((o) => String(o.id) === String(orderId));
+    const foundOrder = deliveredOrderRecord || orders.find((o) => String(o.id) === String(orderId));
     const buyerTargetEmail = foundOrder?.email;
 
     if (status === 'delivered') {
@@ -2125,7 +2210,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       addNotification(
         `Order #${String(orderId).slice(-6)} Delivered! 🎉`,
-        'Your order has been delivered! Open My Orders to view your Product Link, Download & Delivery Package.',
+        'Your order has been delivered! Your Official Receipt with Product Link & Download is ready.',
         'order',
         'fa-circle-check',
         buyerTargetEmail,
