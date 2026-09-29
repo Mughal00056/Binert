@@ -49,34 +49,94 @@ function normalizeOrders(val: unknown): Order[] {
   });
 }
 
+function getLocalList<T>(key: string): T[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function normalizeStoreState(data: Record<string, any> | null | undefined): StoreState {
   if (!data) return INITIAL_STORE_STATE;
 
+  const isInitialized = Boolean(data.updatedAt);
+
+  const remoteDeletedUsers = normalizeArray<string>(data.deletedUserEmails, []);
+  const localDeletedUsers = getLocalList<string>('apex_deleted_user_emails');
+  const deletedUserEmails = Array.from(
+    new Set([...remoteDeletedUsers, ...localDeletedUsers].map((e) => String(e).trim().toLowerCase()).filter(Boolean))
+  );
+
+  const remoteDeletedOrders = normalizeArray<string>(data.deletedOrderIds, []);
+  const localDeletedOrders = getLocalList<string>('apex_deleted_order_ids');
+  const deletedOrderIds = Array.from(
+    new Set([...remoteDeletedOrders, ...localDeletedOrders].map((id) => String(id).trim()).filter(Boolean))
+  );
+
+  const remoteDeletedProducts = normalizeArray<number>(data.deletedProductIds, []);
+  const localDeletedProducts = getLocalList<number>('apex_deleted_product_ids');
+  const deletedProductIds = Array.from(
+    new Set([...remoteDeletedProducts, ...localDeletedProducts].map((id) => Number(id)).filter((n) => !Number.isNaN(n)))
+  );
+
+  const remoteDeletedCats = normalizeArray<string>(data.deletedCategoryIds, []);
+  const localDeletedCats = getLocalList<string>('apex_deleted_category_ids');
+  const deletedCategoryIds = Array.from(
+    new Set([...remoteDeletedCats, ...localDeletedCats].map((id) => String(id).trim()).filter(Boolean))
+  );
+
+  const deletedUserSet = new Set(deletedUserEmails);
+  const deletedOrderSet = new Set(deletedOrderIds);
+  const deletedProductSet = new Set(deletedProductIds);
+  const deletedCatSet = new Set(deletedCategoryIds);
+
+  const rawProducts = data.productsCleared
+    ? []
+    : normalizeArray(data.products, isInitialized ? [] : INITIAL_STORE_STATE.products);
+  const products = rawProducts.filter((p) => p && !deletedProductSet.has(Number(p.id)));
+
+  const rawOrders = data.ordersCleared ? [] : normalizeOrders(data.orders);
+  const orders = rawOrders.filter((o) => o && !deletedOrderSet.has(String(o.id)));
+
+  const rawCategories =
+    data.categories !== undefined
+      ? normalizeArray(data.categories, [])
+      : isInitialized
+      ? normalizeArray(data.categories, INITIAL_STORE_STATE.categories || [])
+      : INITIAL_STORE_STATE.categories || [];
+  const categories = rawCategories.filter((c) => c && !deletedCatSet.has(String(c.id)));
+
+  const rawUsers = data.usersCleared
+    ? []
+    : data.users !== undefined
+    ? normalizeArray(data.users, [])
+    : (() => {
+        if (typeof window !== 'undefined') {
+          try {
+            const localUsers = localStorage.getItem('apex_registered_users');
+            if (localUsers) return JSON.parse(localUsers);
+          } catch {}
+        }
+        return isInitialized ? [] : INITIAL_STORE_STATE.users || [];
+      })();
+  const users = rawUsers.filter(
+    (u) => u && u.email && !deletedUserSet.has(String(u.email).trim().toLowerCase())
+  );
+
   return {
-    products: normalizeArray(data.products, INITIAL_STORE_STATE.products),
-    promos: normalizeArray(data.promos, INITIAL_STORE_STATE.promos),
-    orders: normalizeOrders(data.orders),
+    products,
+    promos: normalizeArray(data.promos, isInitialized ? [] : INITIAL_STORE_STATE.promos),
+    orders,
     sections: normalizeArray(data.sections, INITIAL_STORE_STATE.sections),
-    categories:
-      data.categories !== undefined
-        ? normalizeArray(data.categories, [])
-        : INITIAL_STORE_STATE.categories,
-    users:
-      data.users !== undefined
-        ? normalizeArray(data.users, [])
-        : (() => {
-            if (typeof window !== 'undefined') {
-              try {
-                const localUsers = localStorage.getItem('apex_registered_users');
-                if (localUsers) return JSON.parse(localUsers);
-              } catch {}
-            }
-            return INITIAL_STORE_STATE.users || [];
-          })(),
-    gallery: normalizeArray(data.gallery, INITIAL_STORE_STATE.gallery),
+    categories,
+    users,
+    gallery: normalizeArray(data.gallery, isInitialized ? [] : INITIAL_STORE_STATE.gallery),
     galleryEnabled: data.galleryEnabled !== false,
     bannerImage: data.bannerImage !== undefined ? data.bannerImage : INITIAL_STORE_STATE.bannerImage,
-    launchPool: normalizeArray(data.launchPool, INITIAL_STORE_STATE.launchPool),
+    launchPool: normalizeArray(data.launchPool, isInitialized ? [] : INITIAL_STORE_STATE.launchPool),
     nextLaunchProductId:
       data.nextLaunchProductId !== undefined ? data.nextLaunchProductId : INITIAL_STORE_STATE.nextLaunchProductId,
     launchConfig: {
@@ -89,7 +149,10 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
       ...(data.paymentMethods || {})
     },
     customPaymentMethods: normalizeArray(data.customPaymentMethods, INITIAL_STORE_STATE.customPaymentMethods),
-    notifications: normalizeArray(data.notifications, INITIAL_STORE_STATE.notifications),
+    notifications: normalizeArray(
+      data.notifications,
+      isInitialized ? [] : INITIAL_STORE_STATE.notifications
+    ).filter((n) => !n.orderId || !deletedOrderSet.has(String(n.orderId))),
     transcriptSettings: {
       ...INITIAL_STORE_STATE.transcriptSettings,
       ...(data.transcriptSettings || {})
@@ -102,7 +165,17 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
       ...INITIAL_STORE_STATE.announcementSettings,
       ...(data.announcementSettings || {})
     },
-    featureToggles: data.featureToggles || INITIAL_STORE_STATE.featureToggles,
+    featureToggles: {
+      ...INITIAL_STORE_STATE.featureToggles,
+      ...(data.featureToggles || {})
+    },
+    deletedUserEmails,
+    deletedOrderIds,
+    deletedProductIds,
+    deletedCategoryIds,
+    ordersCleared: Boolean(data.ordersCleared),
+    usersCleared: Boolean(data.usersCleared),
+    productsCleared: Boolean(data.productsCleared),
     updatedAt: data.updatedAt || Date.now()
   };
 }
@@ -110,26 +183,43 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
 function saveLocalStoreCache(state: Partial<StoreState>) {
   if (typeof window === 'undefined') return;
   try {
+    if (state.deletedUserEmails !== undefined) {
+      localStorage.setItem('apex_deleted_user_emails', JSON.stringify(state.deletedUserEmails));
+    }
+    if (state.deletedOrderIds !== undefined) {
+      localStorage.setItem('apex_deleted_order_ids', JSON.stringify(state.deletedOrderIds));
+    }
+    if (state.deletedProductIds !== undefined) {
+      localStorage.setItem('apex_deleted_product_ids', JSON.stringify(state.deletedProductIds));
+    }
+    if (state.deletedCategoryIds !== undefined) {
+      localStorage.setItem('apex_deleted_category_ids', JSON.stringify(state.deletedCategoryIds));
+    }
+
     const existingRaw = localStorage.getItem(LOCAL_CACHE_KEY);
     const existing = existingRaw ? JSON.parse(existingRaw) : INITIAL_STORE_STATE;
     const merged = { ...existing, ...state, updatedAt: Date.now() };
     localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(merged));
 
-    if (state.orders) {
-      const normalizedForStorefront = state.orders.map((o) => ({
-        ...o,
-        id: Number.isNaN(Number(o.id)) ? o.id : Number(o.id),
-        items: (o.items || []).map((it) => ({
-          ...it,
-          productId: it.productId || it.id,
-          image: it.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600'
-        })),
-        subtotal: o.subtotal ?? o.total,
-        discount: o.discount ?? 0,
-        createdAt:
-          typeof o.createdAt === 'number' ? new Date(o.createdAt).toISOString() : o.createdAt || new Date().toISOString()
-      }));
+    if (state.orders !== undefined) {
+      const deletedOrderSet = new Set(getLocalList<string>('apex_deleted_order_ids').map(String));
+      const normalizedForStorefront = state.orders
+        .filter((o) => o && !deletedOrderSet.has(String(o.id)))
+        .map((o) => ({
+          ...o,
+          id: Number.isNaN(Number(o.id)) ? o.id : Number(o.id),
+          items: (o.items || []).map((it) => ({
+            ...it,
+            productId: it.productId || it.id,
+            image: it.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600'
+          })),
+          subtotal: o.subtotal ?? o.total,
+          discount: o.discount ?? 0,
+          createdAt:
+            typeof o.createdAt === 'number' ? new Date(o.createdAt).toISOString() : o.createdAt || new Date().toISOString()
+        }));
       localStorage.setItem('apex_orders', JSON.stringify(normalizedForStorefront));
+      window.dispatchEvent(new Event('apex_orders_updated'));
     }
 
     if (state.products !== undefined) {
@@ -151,6 +241,11 @@ function saveLocalStoreCache(state: Partial<StoreState>) {
     if (state.notifications !== undefined) {
       localStorage.setItem('apex_notifications', JSON.stringify(state.notifications));
       window.dispatchEvent(new Event('apex_notifications_updated'));
+    }
+
+    if (state.featureToggles !== undefined) {
+      localStorage.setItem('apex_feature_toggles', JSON.stringify(state.featureToggles));
+      window.dispatchEvent(new Event('apex_features_updated'));
     }
 
     window.dispatchEvent(new CustomEvent('apex_store_state_synced', { detail: merged }));
@@ -246,7 +341,24 @@ export function subscribeToFirebaseStore(onData: (state: StoreState) => void, on
     storeRef,
     (snapshot) => {
       if (snapshot.exists()) {
-        const merged = normalizeStoreState(snapshot.val());
+        const val = snapshot.val();
+        if (typeof window !== 'undefined') {
+          try {
+            if (Array.isArray(val.deletedUserEmails)) {
+              localStorage.setItem('apex_deleted_user_emails', JSON.stringify(val.deletedUserEmails));
+            }
+            if (Array.isArray(val.deletedOrderIds)) {
+              localStorage.setItem('apex_deleted_order_ids', JSON.stringify(val.deletedOrderIds));
+            }
+            if (Array.isArray(val.deletedProductIds)) {
+              localStorage.setItem('apex_deleted_product_ids', JSON.stringify(val.deletedProductIds));
+            }
+            if (Array.isArray(val.deletedCategoryIds)) {
+              localStorage.setItem('apex_deleted_category_ids', JSON.stringify(val.deletedCategoryIds));
+            }
+          } catch {}
+        }
+        const merged = normalizeStoreState(val);
         onData(merged);
       }
     },

@@ -216,5 +216,12 @@ export interface StoreState {
   storeSettings?: StoreSettings;
   announcementSettings?: AnnouncementSettings;
   featureToggles?: FeatureToggles;
+  deletedUserEmails?: string[];
+  deletedOrderIds?: string[];
+  deletedProductIds?: number[];
+  deletedCategoryIds?: string[];
+  ordersCleared?: boolean;
+  usersCleared?: boolean;
+  productsCleared?: boolean;
   updatedAt?: number;
 }

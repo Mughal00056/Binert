@@ -185,6 +185,7 @@ export interface LaunchConfig {
 }
 
 export interface FeatureToggles {
+  sideMenu: boolean;
   splash: boolean;
   announcement: boolean;
   banner: boolean;
@@ -206,6 +207,7 @@ export interface FeatureToggles {
 }
 
 export const DEFAULT_FEATURE_TOGGLES: FeatureToggles = {
+  sideMenu: true,
   splash: true,
   announcement: true,
   banner: true,

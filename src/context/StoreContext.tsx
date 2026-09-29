@@ -214,6 +214,46 @@ const LOCAL_STORAGE_PRODUCTS = 'apex_products_catalog';
 const LOCAL_STORAGE_CURRENT_USER = 'apex_current_user';
 const LOCAL_STORAGE_USERS = 'apex_registered_users';
 
+function getDeletedEmailsSet(): Set<string> {
+  try {
+    const raw = localStorage.getItem('apex_deleted_user_emails');
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    return new Set(list.map((e) => String(e).trim().toLowerCase()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+function getDeletedOrderIdsSet(): Set<string> {
+  try {
+    const raw = localStorage.getItem('apex_deleted_order_ids');
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    return new Set(list.map((id) => String(id).trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+function getDeletedProductIdsSet(): Set<number> {
+  try {
+    const raw = localStorage.getItem('apex_deleted_product_ids');
+    const list: number[] = raw ? JSON.parse(raw) : [];
+    return new Set(list.map((id) => Number(id)).filter((n) => !Number.isNaN(n)));
+  } catch {
+    return new Set();
+  }
+}
+
+function getDeletedCategoryIdsSet(): Set<string> {
+  try {
+    const raw = localStorage.getItem('apex_deleted_category_ids');
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    return new Set(list.map((id) => String(id).trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation State
   const [currentView, setCurrentView] = useState<'home' | 'all' | 'search' | 'promo' | 'contact' | 'about' | 'orders'>('home');
@@ -224,8 +264,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Products & Settings (Persisted with user review adjustments)
   const [products, setProducts] = useState<Product[]>(() => {
     try {
+      const deletedProds = getDeletedProductIdsSet();
       const saved = localStorage.getItem(LOCAL_STORAGE_PRODUCTS);
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      const list: Product[] = saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      return list.filter((p) => p && !deletedProds.has(Number(p.id)));
     } catch {
       return INITIAL_PRODUCTS;
     }
@@ -234,8 +276,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [sections, setSections] = useState<SectionConfig[]>(INITIAL_SECTIONS);
   const [categories, setCategories] = useState<CategoryItem[]>(() => {
     try {
+      const deletedCats = getDeletedCategoryIdsSet();
       const saved = localStorage.getItem('apex_categories');
-      return saved ? JSON.parse(saved) : FALLBACK_CATEGORIES;
+      const list: CategoryItem[] = saved ? JSON.parse(saved) : FALLBACK_CATEGORIES;
+      return list.filter((c) => c && !deletedCats.has(String(c.id)));
     } catch {
       return FALLBACK_CATEGORIES;
     }
@@ -291,11 +335,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
   const [pendingCartProductId, setPendingCartProductId] = useState<number | null>(null);
 
-  // Orders State (Persisted)
+  // Orders State (Persisted, excluding deleted orders)
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
+      const deletedOrders = getDeletedOrderIdsSet();
       const saved = localStorage.getItem(LOCAL_STORAGE_ORDERS);
-      return saved ? JSON.parse(saved) : [];
+      const list: Order[] = saved ? JSON.parse(saved) : [];
+      return list.filter((o) => o && !deletedOrders.has(String(o.id)));
     } catch {
       return [];
     }
@@ -368,48 +414,80 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     const handleCategoriesSync = () => {
       try {
+        const deletedCats = getDeletedCategoryIdsSet();
         const saved = localStorage.getItem('apex_categories');
         if (saved) {
-          setCategories(JSON.parse(saved));
+          const parsed: CategoryItem[] = JSON.parse(saved);
+          setCategories(parsed.filter((c) => c && !deletedCats.has(String(c.id))));
         }
       } catch {}
     };
     const handleOrdersSync = () => {
       try {
+        const deletedOrders = getDeletedOrderIdsSet();
         const saved = localStorage.getItem(LOCAL_STORAGE_ORDERS);
         if (saved) {
-          setOrders(JSON.parse(saved));
+          const parsed: Order[] = JSON.parse(saved);
+          const filtered = parsed.filter((o) => o && !deletedOrders.has(String(o.id)));
+          setOrders(filtered);
+          const validIds = new Set(filtered.map((o) => String(o.id)));
+          setCurrentOrder((curr) => {
+            if (curr && !validIds.has(String(curr.id))) {
+              setTimerModalOpen(false);
+              return null;
+            }
+            return curr;
+          });
+          setReceiptOrder((curr) => (curr && !validIds.has(String(curr.id)) ? null : curr));
+          setActiveTimerOrderId((currId) => {
+            if (currId !== null && !validIds.has(String(currId))) {
+              setTimerModalOpen(false);
+              return null;
+            }
+            return currId;
+          });
         }
       } catch {}
     };
     const handleProductsSync = () => {
       try {
+        const deletedProds = getDeletedProductIdsSet();
         const saved = localStorage.getItem(LOCAL_STORAGE_PRODUCTS);
         if (saved) {
-          setProducts(JSON.parse(saved));
+          const parsed: Product[] = JSON.parse(saved);
+          setProducts(parsed.filter((p) => p && !deletedProds.has(Number(p.id))));
         }
       } catch {}
     };
     const handleUsersSync = () => {
       try {
+        const deletedEmails = getDeletedEmailsSet();
         const saved = localStorage.getItem(LOCAL_STORAGE_USERS);
-        if (saved) {
-          const parsedUsers: UserProfile[] = JSON.parse(saved);
-          setRegisteredUsers(parsedUsers);
-          setCurrentUser((curr) => {
-            if (!curr) return null;
-            const stillExists = parsedUsers.find(
-              (u) => (u.email || '').trim().toLowerCase() === (curr.email || '').trim().toLowerCase()
-            );
-            if (!stillExists) {
-              try {
-                localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
-              } catch {}
-              return null;
-            }
-            return { ...curr, ...stillExists };
-          });
-        }
+        const parsedUsers: UserProfile[] = saved ? JSON.parse(saved) : [];
+        const activeUsers = parsedUsers.filter(
+          (u) => u && u.email && !deletedEmails.has(u.email.trim().toLowerCase())
+        );
+        setRegisteredUsers(activeUsers);
+        setCurrentUser((curr) => {
+          if (!curr) return null;
+          const currEmail = (curr.email || '').trim().toLowerCase();
+          if (deletedEmails.has(currEmail)) {
+            try {
+              localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
+            } catch {}
+            return null;
+          }
+          const stillExists = activeUsers.find(
+            (u) => (u.email || '').trim().toLowerCase() === currEmail
+          );
+          if (!stillExists) {
+            try {
+              localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
+            } catch {}
+            return null;
+          }
+          return { ...curr, ...stillExists };
+        });
       } catch {}
     };
 
@@ -447,15 +525,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.setItem('apex_feature_toggles', JSON.stringify(updated));
         window.dispatchEvent(new Event('apex_features_updated'));
       } catch {}
+      updateFirebasePartial({ featureToggles: updated }).catch(() => {});
       return updated;
     });
   };
 
-  // Registered Users (Persisted)
+  // Registered Users (Persisted, excluding deleted users)
   const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>(() => {
     try {
+      const deletedEmails = getDeletedEmailsSet();
       const saved = localStorage.getItem(LOCAL_STORAGE_USERS);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: UserProfile[] = JSON.parse(saved);
+        return parsed.filter((u) => u && u.email && !deletedEmails.has(u.email.trim().toLowerCase()));
+      }
       const initialUsers: UserProfile[] = [
         {
           id: 'u_admin',
@@ -473,7 +556,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           role: 'user',
           createdAt: new Date().toISOString()
         }
-      ];
+      ].filter((u) => !deletedEmails.has(u.email.toLowerCase()));
       localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(initialUsers));
       return initialUsers;
     } catch {
@@ -481,11 +564,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  // Current Logged-in User
+  // Current Logged-in User (verified against deleted list)
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
+      const deletedEmails = getDeletedEmailsSet();
       const saved = localStorage.getItem(LOCAL_STORAGE_CURRENT_USER);
-      return saved ? JSON.parse(saved) : null;
+      if (!saved) return null;
+      const parsed: UserProfile = JSON.parse(saved);
+      if (!parsed?.email || deletedEmails.has(parsed.email.trim().toLowerCase())) {
+        localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
+        return null;
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -528,22 +618,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const syncUsersToFirebase = (usersList: UserProfile[]) => {
+    const deletedEmails = getDeletedEmailsSet();
+    const cleanList = usersList.filter(
+      (u) => u && u.email && !deletedEmails.has(u.email.trim().toLowerCase())
+    );
     try {
-      const activeEmails = new Set(usersList.map((u) => (u.email || '').trim().toLowerCase()));
-      const deletedRaw = localStorage.getItem('apex_deleted_user_emails');
-      if (deletedRaw) {
-        const deletedList: string[] = JSON.parse(deletedRaw);
-        localStorage.setItem(
-          'apex_deleted_user_emails',
-          JSON.stringify(deletedList.filter((e) => !activeEmails.has(e.trim().toLowerCase())))
-        );
-      }
-      localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(usersList));
+      localStorage.setItem(LOCAL_STORAGE_USERS, JSON.stringify(cleanList));
       window.dispatchEvent(new Event('apex_users_updated'));
     } catch {}
 
     updateFirebasePartial({
-      users: usersList.map((u) => ({
+      users: cleanList.map((u) => ({
         id: u.id,
         name: u.name,
         email: u.email,
@@ -551,7 +636,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         role: u.role || 'user',
         createdAt: u.createdAt,
         lastLoginAt: u.lastLoginAt || new Date().toISOString()
-      }))
+      })),
+      usersCleared: cleanList.length === 0
     }).catch(() => {});
   };
 
@@ -563,10 +649,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: 'Please enter your email address.' };
     }
 
+    // Check if Admin deleted this user account
+    const deletedEmails = getDeletedEmailsSet();
+    if (deletedEmails.has(cleanEmail)) {
+      return {
+        success: false,
+        error: 'This account has been deleted by Admin and can no longer sign in.'
+      };
+    }
+
     const matched = registeredUsers.find((u) => u.email.toLowerCase() === cleanEmail);
     if (!matched) {
       if (cleanEmail && cleanPass.length >= 4) {
-        // Auto-register seamless experience
+        // Auto-register only if NOT deleted by Admin
         const newUser: UserProfile = {
           id: `u_${Date.now()}`,
           name: cleanEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
@@ -623,6 +718,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     if (cleanPass.length < 4) {
       return { success: false, error: 'Password must be at least 4 characters.' };
+    }
+
+    // Block signup if Admin deleted this user
+    const deletedEmails = getDeletedEmailsSet();
+    if (deletedEmails.has(cleanEmail)) {
+      return {
+        success: false,
+        error: 'This account was deleted by Admin and cannot be registered again.'
+      };
     }
 
     const exists = registeredUsers.some((u) => u.email.toLowerCase() === cleanEmail);
@@ -773,14 +877,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const applyRemoteStoreState = (data: StoreState) => {
       if (!isMounted || !data) return;
 
+      const deletedProds = getDeletedProductIdsSet();
+      const deletedOrders = getDeletedOrderIdsSet();
+      const deletedEmails = getDeletedEmailsSet();
+      const deletedCats = getDeletedCategoryIdsSet();
+
       if (Array.isArray(data.products)) {
         setProducts((currentProds) => {
-          const nextProds = data.products.map((dp) => {
-            const matched = currentProds.find((cp) => cp.id === dp.id);
-            return matched
-              ? ({ ...dp, rating: dp.rating ?? matched.rating, reviews: dp.reviews ?? matched.reviews } as Product)
-              : (dp as Product);
-          });
+          const nextProds = data.products
+            .filter((dp) => dp && !deletedProds.has(Number(dp.id)))
+            .map((dp) => {
+              const matched = currentProds.find((cp) => cp.id === dp.id);
+              return matched
+                ? ({ ...dp, rating: dp.rating ?? matched.rating, reviews: dp.reviews ?? matched.reviews } as Product)
+                : (dp as Product);
+            });
           try {
             localStorage.setItem(LOCAL_STORAGE_PRODUCTS, JSON.stringify(nextProds));
           } catch {}
@@ -817,12 +928,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       if (Array.isArray(data.categories)) {
-        setCategories(data.categories);
+        const cleanCats = data.categories.filter((c) => c && !deletedCats.has(String(c.id)));
+        setCategories(cleanCats);
       }
 
       if (Array.isArray(data.users)) {
         const remoteUsers: UserProfile[] = data.users
-          .filter((ru) => ru && ru.email)
+          .filter((ru) => ru && ru.email && !deletedEmails.has(ru.email.trim().toLowerCase()))
           .map((ru) => ({
             id: ru.id || `u_${ru.email}`,
             name: ru.name || ru.email.split('@')[0],
@@ -838,8 +950,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } catch {}
         setCurrentUser((curr) => {
           if (!curr) return null;
+          const currEmail = (curr.email || '').trim().toLowerCase();
+          if (deletedEmails.has(currEmail)) {
+            try {
+              localStorage.removeItem(LOCAL_STORAGE_CURRENT_USER);
+            } catch {}
+            return null;
+          }
           const stillExists = remoteUsers.find(
-            (u) => (u.email || '').trim().toLowerCase() === (curr.email || '').trim().toLowerCase()
+            (u) => (u.email || '').trim().toLowerCase() === currEmail
           );
           if (!stillExists) {
             try {
@@ -847,7 +966,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             } catch {}
             return null;
           }
-          return stillExists ? { ...curr, ...stillExists } : curr;
+          return { ...curr, ...stillExists };
         });
       }
 
@@ -869,7 +988,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
       }
 
-      const incomingOrders = Array.isArray(data.orders) ? data.orders : [];
+      const incomingOrders = (Array.isArray(data.orders) ? data.orders : []).filter(
+        (ro) => ro && !deletedOrders.has(String(ro.id))
+      );
       setOrders((prevOrders) => {
         const prevMap = new Map<number, Order>();
         for (const po of prevOrders) {
@@ -915,9 +1036,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             timeline: ro.timeline || existing?.timeline || []
           };
         });
-        return nextOrders.sort(
+        const sorted = nextOrders.sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
+        try {
+          localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(sorted));
+        } catch {}
+
+        const validIds = new Set(sorted.map((o) => String(o.id)));
+        setCurrentOrder((curr) => {
+          if (curr && !validIds.has(String(curr.id))) {
+            setTimerModalOpen(false);
+            return null;
+          }
+          return curr;
+        });
+        setReceiptOrder((curr) => (curr && !validIds.has(String(curr.id)) ? null : curr));
+        setActiveTimerOrderId((currId) => {
+          if (currId !== null && !validIds.has(String(currId))) {
+            setTimerModalOpen(false);
+            return null;
+          }
+          return currId;
+        });
+
+        return sorted;
       });
 
       if (data.storeSettings) {
@@ -1300,27 +1443,42 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setApprovalSecondsLeft(180);
   };
 
-  // Delete an order (works for both Admin and User)
+  // Delete an order permanently (works for both Admin and User)
   const deleteOrder = (orderId: number | string) => {
+    const idStr = String(orderId).trim();
+    const deletedSet = getDeletedOrderIdsSet();
+    deletedSet.add(idStr);
+    const nextDeletedOrderIds = Array.from(deletedSet);
+    try {
+      localStorage.setItem('apex_deleted_order_ids', JSON.stringify(nextDeletedOrderIds));
+    } catch {}
+
     setOrders((prev) => {
-      const updated = prev.filter((o) => String(o.id) !== String(orderId));
+      const updated = prev.filter((o) => String(o.id) !== idStr);
       try {
         localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(updated));
+        window.dispatchEvent(new Event('apex_orders_updated'));
       } catch {}
       updateFirebasePartial({
-        orders: updated.map((o) => ({ ...o, id: String(o.id) }))
+        orders: updated.map((o) => ({ ...o, id: String(o.id) })),
+        deletedOrderIds: nextDeletedOrderIds,
+        ordersCleared: updated.length === 0
       }).catch(() => {});
       return updated;
     });
 
-    if (currentOrder && String(currentOrder.id) === String(orderId)) {
+    if (currentOrder && String(currentOrder.id) === idStr) {
       setCurrentOrder(null);
       setTimerModalOpen(false);
     }
-    if (receiptOrder && String(receiptOrder.id) === String(orderId)) {
+    if (receiptOrder && String(receiptOrder.id) === idStr) {
       setReceiptOrder(null);
     }
-    showToast(`Order #${String(orderId).slice(-6)} deleted`, 'info');
+    if (activeTimerOrderId !== null && String(activeTimerOrderId) === idStr) {
+      setActiveTimerOrderId(null);
+      setTimerModalOpen(false);
+    }
+    showToast(`Order #${idStr.slice(-6)} deleted`, 'info');
   };
 
   // Confirm payment: Manual merchant verification flow with Live Timer & Admin OTP Approval
@@ -1332,12 +1490,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     transactionId: string;
     proofUrl: string;
   }) => {
+    const buyerEmail = (currentUser?.email || details.email || '').trim().toLowerCase();
+    if (getDeletedEmailsSet().has(buyerEmail)) {
+      logout();
+      setPaymentModalOpen(false);
+      showToast('Your account was deleted by Admin and cannot place orders.', 'error');
+      return;
+    }
+
     const orderId = Date.now();
     const effectiveProof = details.proofUrl.trim() || 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&auto=format&fit=crop&q=80';
     const effectiveTrxId = details.transactionId.trim() || `APX-${Date.now().toString().slice(-6)}`;
     const expiresAt = Date.now() + 180 * 1000; // 3 minutes countdown for merchant review
 
-    const buyerEmail = (currentUser?.email || details.email || '').trim().toLowerCase();
     const matchedRegUser = registeredUsers.find((u) => u.email.toLowerCase() === buyerEmail);
     const buyerPassword = currentUser?.password || details.password || matchedRegUser?.password || '';
     const buyerName =

@@ -24,8 +24,22 @@ export const OrdersView: React.FC = () => {
   const [otpErrors, setOtpErrors] = useState<Record<number, string>>({});
   const [verifyingId, setVerifyingId] = useState<number | null>(null);
 
-  // Strict privacy: Only show orders when user is logged in with email & password, and ONLY their own orders
+  // Strict privacy: Only show orders when user is logged in with email & password, and ONLY their own non-deleted orders
+  let deletedIdsSet = new Set<string>();
+  try {
+    const rawDel = localStorage.getItem('apex_deleted_order_ids');
+    if (rawDel) {
+      const parsed: string[] = JSON.parse(rawDel);
+      if (Array.isArray(parsed)) {
+        deletedIdsSet = new Set(parsed.map((id) => String(id).trim()));
+      }
+    }
+  } catch {}
+
   const userOrders = orders.filter((o) => {
+    if (deletedIdsSet.has(String(o.id).trim())) {
+      return false;
+    }
     if (!currentUser || !currentUser.email) {
       return false;
     }

@@ -340,55 +340,19 @@ img {
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
-/* ================= ADMIN THEMES & STYLING ================= */
-.admin-theme-cyber {
+/* ================= ADMIN PANEL — USER PANEL (STOREFRONT) THEME ONLY ================= */
+.admin-theme-cyber,
+.admin-theme-obsidian,
+.admin-theme-slate,
+.admin-theme-light {
   --admin-bg: #0a0a0f;
   --admin-surface: #13131a;
   --admin-surface-hover: #1b162a;
-  --admin-border: rgba(147, 51, 234, 0.32);
+  --admin-border: rgba(147, 51, 234, 0.35);
   --admin-text: #f8fafc;
   --admin-muted: #c4b5fd;
   --admin-accent: #a855f7;
   color-scheme: dark;
-}
-
-.admin-theme-obsidian {
-  --admin-bg: #030712;
-  --admin-surface: #0a101d;
-  --admin-surface-hover: #101827;
-  --admin-border: #1f2937;
-  --admin-text: #ffffff;
-  --admin-muted: #9ca3af;
-  --admin-accent: #10b981;
-  color-scheme: dark;
-}
-
-.admin-theme-slate {
-  --admin-bg: #0f172a;
-  --admin-surface: #1e293b;
-  --admin-surface-hover: #293548;
-  --admin-border: #334155;
-  --admin-text: #f1f5f9;
-  --admin-muted: #94a3b8;
-  --admin-accent: #38bdf8;
-  color-scheme: dark;
-}
-
-.admin-theme-light {
-  --admin-bg: #f8fafc;
-  --admin-surface: #ffffff;
-  --admin-surface-hover: #f1f5f9;
-  --admin-border: #e2e8f0;
-  --admin-text: #0f172a;
-  --admin-muted: #64748b;
-  --admin-accent: #7c3aed;
-  color-scheme: light;
-}
-
-/* Apply Admin Theming to dark themes */
-.admin-theme-cyber,
-.admin-theme-obsidian,
-.admin-theme-slate {
   background-color: var(--admin-bg) !important;
   color: var(--admin-text) !important;
 }
@@ -396,15 +360,7 @@ img {
 .admin-theme-cyber .admin-card,
 .admin-theme-cyber .bg-white,
 .admin-theme-cyber aside,
-.admin-theme-cyber header,
-.admin-theme-obsidian .admin-card,
-.admin-theme-obsidian .bg-white,
-.admin-theme-obsidian aside,
-.admin-theme-obsidian header,
-.admin-theme-slate .admin-card,
-.admin-theme-slate .bg-white,
-.admin-theme-slate aside,
-.admin-theme-slate header {
+.admin-theme-cyber header {
   background-color: var(--admin-surface) !important;
   border-color: var(--admin-border) !important;
   color: var(--admin-text) !important;
@@ -642,11 +598,19 @@ img {
   color: #ffffff !important;
   box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
 }
-.admin-theme-light .sidebar-link.active {
-  background: linear-gradient(135deg, #ede9fe, #fae8ff) !important;
-  border: 1px solid #c084fc !important;
-  color: #6b21a8 !important;
-  box-shadow: 0 2px 6px rgba(147, 51, 234, 0.15);
+
+/* Android & Desktop Responsive Admin Fixes */
+@media (max-width: 640px) {
+  .admin-theme-cyber table {
+    min-width: 640px;
+  }
+  .timer-ring {
+    width: 170px;
+    height: 170px;
+  }
+  .timer-display {
+    font-size: 1.65rem;
+  }
 }
 
 /* Global Icon Alignment & Sizing Fixes */

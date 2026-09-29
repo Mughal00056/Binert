@@ -19,7 +19,8 @@ export const Header: React.FC = () => {
     openSignUp,
     logout,
     setReceiptOrder,
-    openOrdersView
+    openOrdersView,
+    featureToggles
   } = useStore();
 
   const [cartBump, setCartBump] = useState(false);
@@ -56,16 +57,18 @@ export const Header: React.FC = () => {
           
           {/* Left: Menu & Brand */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setSideMenuOpen(true)}
-              className="relative p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
-              aria-label="Open navigation menu"
-            >
-              <i className="fa-solid fa-bars text-xl" />
-              {unreadNotificationCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-purple-500 shadow-md shadow-purple-500/50" />
-              )}
-            </button>
+            {featureToggles.sideMenu !== false && (
+              <button
+                onClick={() => setSideMenuOpen(true)}
+                className="relative p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
+                aria-label="Open navigation menu"
+              >
+                <i className="fa-solid fa-bars text-xl" />
+                {featureToggles.notifications !== false && unreadNotificationCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-purple-500 shadow-md shadow-purple-500/50" />
+                )}
+              </button>
+            )}
 
             <button
               onClick={goHome}
@@ -90,13 +93,15 @@ export const Header: React.FC = () => {
           {/* Right: Actions */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Search */}
-            <button
-              onClick={() => setSearchSuggestionsOpen(true)}
-              className="p-2 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
-              aria-label="Search catalog"
-            >
-              <i className="fa-solid fa-magnifying-glass text-lg sm:text-xl" />
-            </button>
+            {featureToggles.searchPanel !== false && (
+              <button
+                onClick={() => setSearchSuggestionsOpen(true)}
+                className="p-2 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
+                aria-label="Search catalog"
+              >
+                <i className="fa-solid fa-magnifying-glass text-lg sm:text-xl" />
+              </button>
+            )}
 
             {/* Orders */}
             <button
@@ -114,18 +119,20 @@ export const Header: React.FC = () => {
             </button>
 
             {/* Notifications */}
-            <button
-              onClick={() => setNotificationModalOpen(true)}
-              className="relative p-2 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
-              aria-label="View notifications"
-            >
-              <i className="fa-regular fa-bell text-lg sm:text-xl" />
-              {unreadNotificationCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 bg-purple-500 text-white text-[9px] font-extrabold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center shadow-sm">
-                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                </span>
-              )}
-            </button>
+            {featureToggles.notifications !== false && (
+              <button
+                onClick={() => setNotificationModalOpen(true)}
+                className="relative p-2 sm:p-2.5 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
+                aria-label="View notifications"
+              >
+                <i className="fa-regular fa-bell text-lg sm:text-xl" />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute top-0.5 right-0.5 bg-purple-500 text-white text-[9px] font-extrabold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center shadow-sm">
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* User Auth: Sign In / Account Dropdown */}
             <div className="relative" ref={dropdownRef}>

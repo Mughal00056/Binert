@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { AdminTheme, ADMIN_THEMES } from '../theme';
+import { AdminTheme } from '../theme';
+import { FeatureToggles } from '../../types';
 
 interface AdminHeaderProps {
   currentTab: string;
   tabTitle: string;
   tabIcon: string;
   syncStatus: 'synced' | 'saving' | 'offline' | 'error';
-  currentTheme: AdminTheme;
-  onSelectTheme: (theme: AdminTheme) => void;
+  currentTheme?: AdminTheme;
+  onSelectTheme?: (theme: AdminTheme) => void;
+  featureToggles?: FeatureToggles;
+  onUpdateFeatureToggle?: (key: keyof FeatureToggles, enabled: boolean) => void;
+  onOpenFeaturesTab?: () => void;
   onForceSync: () => void;
   onToggleSidebar: () => void;
   onSwitchToStorefront: () => void;
@@ -16,40 +20,56 @@ interface AdminHeaderProps {
 
 const LOGO_URL = 'https://i.supaimg.com/0ffab3ca-b15e-48fd-a213-7db2aa7158cc/bb9ac2b2-70ac-461a-b3d7-1d8aabf1a38c.jpg';
 
+const QUICK_FEATURES: Array<{ key: keyof FeatureToggles; label: string; icon: string }> = [
+  { key: 'sideMenu', label: 'Side Menu Drawer', icon: 'fa-bars' },
+  { key: 'splash', label: '3D Splash Screen', icon: 'fa-bolt' },
+  { key: 'announcement', label: 'Top Announcement', icon: 'fa-bullhorn' },
+  { key: 'banner', label: 'Hero Banner', icon: 'fa-image' },
+  { key: 'launchCountdown', label: 'Launch Countdown', icon: 'fa-stopwatch' },
+  { key: 'gallery', label: 'Gallery Showcase', icon: 'fa-images' },
+  { key: 'categoryChips', label: 'Category Filter Chips', icon: 'fa-tags' },
+  { key: 'dynamicSections', label: 'Product Sections', icon: 'fa-layer-group' },
+  { key: 'searchPanel', label: 'Global Search', icon: 'fa-magnifying-glass' },
+  { key: 'notifications', label: 'Notifications Bell', icon: 'fa-bell' },
+  { key: 'promoCodes', label: 'Promo Codes', icon: 'fa-ticket' },
+  { key: 'aiAssistant', label: 'AI Assistant', icon: 'fa-wand-magic-sparkles' },
+  { key: 'whatsAppFloat', label: 'WhatsApp Button', icon: 'fa-whatsapp' }
+];
+
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
   tabTitle,
   tabIcon,
   syncStatus,
-  currentTheme = 'cyber',
-  onSelectTheme,
+  featureToggles,
+  onUpdateFeatureToggle,
+  onOpenFeaturesTab,
   onForceSync,
   onToggleSidebar,
   onSwitchToStorefront,
   onShowToast
 }) => {
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [featureMenuOpen, setFeatureMenuOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
-  const activeThemeConfig = ADMIN_THEMES[currentTheme] || ADMIN_THEMES.cyber;
 
   const syncConfig = {
     synced: {
-      color: 'bg-emerald-500 text-white shadow-emerald-900/30',
-      icon: 'fa-cloud-arrow-up',
+      color: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
+      icon: 'fa-cloud-arrow-up text-emerald-400',
       text: 'Synced'
     },
     saving: {
-      color: 'bg-amber-500 text-white shadow-amber-900/30',
-      icon: 'fa-spinner fa-spin',
+      color: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+      icon: 'fa-spinner fa-spin text-amber-400',
       text: 'Saving...'
     },
     offline: {
-      color: 'bg-slate-500 text-white',
-      icon: 'fa-wifi',
-      text: 'Offline'
+      color: 'bg-purple-950/80 text-purple-300 border border-purple-700/40',
+      icon: 'fa-wifi text-purple-400',
+      text: 'Local Sync'
     },
     error: {
-      color: 'bg-rose-500 text-white shadow-rose-900/30',
-      icon: 'fa-triangle-exclamation',
+      color: 'bg-rose-500/20 text-rose-300 border border-rose-500/40',
+      icon: 'fa-triangle-exclamation text-rose-400',
       text: 'Sync Error'
     }
   }[syncStatus];
@@ -75,20 +95,21 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
   return (
     <>
-      <header className="bg-[#13131a]/95 backdrop-blur-md border-b border-purple-900/40 sticky top-0 z-30 shadow-lg shadow-purple-950/20">
-        <div className="flex items-center justify-between h-16 sm:h-20 px-4 sm:px-6 gap-3">
+      <header className="bg-[#13131a]/95 backdrop-blur-md border-b border-purple-900/40 sticky top-0 z-30 shadow-lg shadow-purple-950/30">
+        <div className="flex items-center justify-between h-16 sm:h-20 px-3 sm:px-6 gap-2">
           {/* Left: Mobile Toggle, Brand Emblem & Page Title */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
+              type="button"
               onClick={onToggleSidebar}
-              aria-label="Toggle sidebar"
-              className="lg:hidden p-2 text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 rounded-xl transition cursor-pointer"
+              aria-label="Toggle navigation menu"
+              className="lg:hidden p-2.5 text-purple-300 hover:text-white bg-purple-950/50 hover:bg-purple-900/60 border border-purple-800/50 rounded-xl transition cursor-pointer shrink-0"
             >
-              <i className="fa-solid fa-bars text-lg"></i>
+              <i className="fa-solid fa-bars text-base sm:text-lg"></i>
             </button>
 
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#0a0a0f] border border-purple-500/40 overflow-hidden shadow-md shadow-purple-900/40 flex items-center justify-center shrink-0 lg:hidden">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#0a0a0f] border border-purple-500/40 overflow-hidden shadow-md shadow-purple-900/40 flex items-center justify-center shrink-0 lg:hidden">
                 <img
                   src={LOGO_URL}
                   alt="ApexStore"
@@ -96,118 +117,137 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                   draggable={false}
                 />
               </div>
-              <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 hidden lg:flex items-center justify-center text-sm font-bold shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-purple-950/70 border border-purple-500/40 text-purple-300 hidden lg:flex items-center justify-center text-sm font-bold shadow-md">
                 <i className={`fa-solid ${tabIcon}`}></i>
               </div>
-              <div>
-                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg font-black text-white tracking-tight leading-tight truncate">
                   {tabTitle}
                 </h1>
-                <p className="text-[10px] text-purple-400 font-bold uppercase tracking-wider hidden sm:block">
-                  ApexStore Power Admin • Live Control
+                <p className="text-[10px] text-purple-400 font-bold uppercase tracking-wider hidden sm:block truncate">
+                  ApexStore Power Admin • Storefront Theme
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Right: Theme Selector, URLs, Sync Status & Storefront Switch */}
-          <div className="flex items-center gap-2">
-            {/* Theme Switcher Button / Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-xs font-bold text-purple-300 transition cursor-pointer"
-                title="Change Admin Panel Theme"
-              >
-                <i className={`fa-solid ${activeThemeConfig.icon}`}></i>
-                <span className="hidden md:inline">{activeThemeConfig.name}</span>
-                <i className="fa-solid fa-chevron-down text-[10px] ml-0.5 opacity-70"></i>
-              </button>
+          {/* Right: Quick Feature ON/OFF Menu, URLs, Sync Status & Storefront Switch */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Quick Feature ON/OFF Toggle Menu */}
+            {featureToggles && onUpdateFeatureToggle && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setFeatureMenuOpen(!featureMenuOpen)}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-purple-500/40 bg-purple-950/60 hover:bg-purple-900/60 text-xs font-black text-purple-200 transition cursor-pointer"
+                  title="Quick Menu: Feature ON/OFF Toggles"
+                >
+                  <i className="fa-solid fa-toggle-on text-emerald-400 text-sm"></i>
+                  <span className="hidden md:inline">Feature Menu</span>
+                  <i className="fa-solid fa-chevron-down text-[9px] opacity-75"></i>
+                </button>
 
-              {themeMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setThemeMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-3 py-1.5">
-                      Admin Theme
-                    </p>
-                    <div className="space-y-1">
-                      {(Object.keys(ADMIN_THEMES) as AdminTheme[]).map((themeKey) => {
-                        const theme = ADMIN_THEMES[themeKey];
-                        const isSelected = currentTheme === themeKey;
-                        return (
+                {featureMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setFeatureMenuOpen(false)}
+                    />
+                    <div className="fixed sm:absolute right-2 sm:right-0 top-16 sm:top-auto sm:mt-2 w-[calc(100vw-1rem)] max-w-xs rounded-2xl bg-[#13131a] border border-purple-800/70 shadow-2xl shadow-purple-950/90 p-3 z-50">
+                      <div className="flex items-center justify-between px-2 pb-2 mb-2 border-b border-purple-900/50">
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wider text-white">
+                            Feature ON / OFF Menu
+                          </p>
+                          <p className="text-[10px] text-purple-300/70">
+                            Instant live storefront switches
+                          </p>
+                        </div>
+                        {onOpenFeaturesTab && (
                           <button
-                            key={themeKey}
+                            type="button"
                             onClick={() => {
-                              onSelectTheme(themeKey);
-                              setThemeMenuOpen(false);
-                              onShowToast(`Theme changed to ${theme.name}`, 'info');
+                              setFeatureMenuOpen(false);
+                              onOpenFeaturesTab();
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-left transition ${
-                              isSelected
-                                ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40'
-                                : 'text-slate-300 hover:bg-slate-800'
-                            }`}
+                            className="text-[10px] font-black text-purple-300 hover:text-white underline cursor-pointer"
                           >
-                            <div className="flex items-center gap-2.5">
-                              <i className={`fa-solid ${theme.icon} w-4 text-center`}></i>
-                              <span>{theme.name}</span>
-                            </div>
-                            <span
-                              className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${
-                                isSelected
-                                  ? 'bg-purple-700/80 text-white'
-                                  : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {theme.badge}
-                            </span>
+                            All Switches
                           </button>
-                        );
-                      })}
+                        )}
+                      </div>
+
+                      <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+                        {QUICK_FEATURES.map((item) => {
+                          const isOn = featureToggles[item.key] !== false;
+                          return (
+                            <div
+                              key={item.key}
+                              onClick={() => onUpdateFeatureToggle(item.key, !isOn)}
+                              className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-purple-950/50 transition cursor-pointer select-none"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <i className={`fa-solid ${item.icon} w-4 text-center text-xs ${isOn ? 'text-purple-400' : 'text-purple-400/40'}`}></i>
+                                <span className={`text-xs font-bold truncate ${isOn ? 'text-white' : 'text-purple-300/50'}`}>
+                                  {item.label}
+                                </span>
+                              </div>
+                              <span
+                                className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                                  isOn
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                    : 'bg-rose-950/60 text-rose-300 border-rose-800/50'
+                                }`}
+                              >
+                                {isOn ? 'ON' : 'OFF'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Direct URLs Share / Copy Button */}
             <button
+              type="button"
               onClick={() => setUrlModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-xs font-bold text-sky-400 transition"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-purple-700/50 bg-[#181326] hover:bg-purple-900/50 text-xs font-bold text-purple-200 transition cursor-pointer"
               title="Get Direct Separate URLs"
             >
-              <i className="fa-solid fa-link text-xs"></i>
-              <span className="hidden sm:inline">Direct URLs</span>
+              <i className="fa-solid fa-link text-purple-400 text-xs"></i>
+              <span className="hidden xl:inline">Direct URLs</span>
             </button>
 
             {/* Sync badge */}
             <div
-              className={`text-xs font-black px-3 py-1.5 rounded-full shadow flex items-center gap-1.5 transition-all duration-300 ${syncConfig.color}`}
+              className={`text-[11px] font-black px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-all duration-300 ${syncConfig.color}`}
             >
               <i className={`fa-solid ${syncConfig.icon}`}></i>
-              <span className="hidden sm:inline">{syncConfig.text}</span>
+              <span className="hidden md:inline">{syncConfig.text}</span>
             </div>
 
             {/* Force sync */}
             <button
+              type="button"
               onClick={onForceSync}
-              className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-slate-800/40 rounded-xl transition"
-              title="Force Sync with Firebase"
+              className="p-2 text-purple-300 hover:text-white bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/40 rounded-xl transition cursor-pointer"
+              title="Force Sync with Storefront & Firebase"
             >
-              <i className="fa-solid fa-rotate text-sm"></i>
+              <i className="fa-solid fa-rotate text-xs sm:text-sm"></i>
             </button>
 
             {/* Storefront switch button */}
             <button
+              type="button"
               onClick={onSwitchToStorefront}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-md shadow-indigo-900/30 cursor-pointer"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white text-xs font-black px-3 sm:px-3.5 py-2 rounded-xl transition shadow-md shadow-purple-950/60 border border-purple-400/30 cursor-pointer"
             >
-              <i className="fa-solid fa-store"></i>
-              <span className="hidden sm:inline">View Storefront</span>
+              <i className="fa-solid fa-store text-xs"></i>
+              <span className="hidden sm:inline">Storefront</span>
             </button>
           </div>
         </div>
@@ -215,91 +255,75 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
       {/* Direct URLs Modal */}
       {urlModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-lg w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#13131a] border border-purple-800/60 rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl shadow-purple-950/90 relative">
             <button
+              type="button"
               onClick={() => setUrlModalOpen(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white p-2 rounded-xl"
+              className="absolute top-4 right-4 text-purple-300 hover:text-white p-2 rounded-xl bg-purple-950/50 cursor-pointer"
             >
               <i className="fa-solid fa-xmark text-lg"></i>
             </button>
 
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center text-lg">
+              <div className="w-10 h-10 rounded-2xl bg-purple-600/20 border border-purple-500/40 text-purple-300 flex items-center justify-center text-lg">
                 <i className="fa-solid fa-up-right-from-square"></i>
               </div>
               <div>
-                <h3 className="text-lg font-black text-white">Direct Application URLs</h3>
-                <p className="text-xs text-slate-400">Two separate URLs for Customer Store and Power Admin</p>
+                <h3 className="text-base sm:text-lg font-black text-white">Direct Application URLs</h3>
+                <p className="text-xs text-purple-300/70">Separate URLs for Customer Storefront and Admin Panel</p>
               </div>
             </div>
 
             <div className="space-y-4 my-5">
               {/* Storefront URL Card */}
-              <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700">
+              <div className="bg-[#0d0d14] rounded-2xl p-4 border border-purple-900/50">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse"></span>
                     <span className="text-xs font-black text-white">1. Customer Storefront URL</span>
                   </div>
                   <button
+                    type="button"
                     onClick={() => copyToClipboard(storefrontUrl, 'Storefront URL')}
-                    className="text-[11px] font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20"
+                    className="text-[11px] font-bold text-purple-300 hover:text-white flex items-center gap-1 bg-purple-900/40 px-2.5 py-1 rounded-lg border border-purple-600/40 cursor-pointer"
                   >
                     <i className="fa-solid fa-copy"></i>
                     <span>Copy</span>
                   </button>
                 </div>
-                <p className="text-xs text-slate-400 font-mono break-all bg-slate-950/60 p-2 rounded-xl select-all border border-slate-800">
+                <p className="text-xs text-purple-200 font-mono break-all bg-[#13131a] p-2.5 rounded-xl select-all border border-purple-900/40">
                   {storefrontUrl}
                 </p>
-                <div className="mt-2 flex gap-2">
-                  <a
-                    href={storefrontUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] text-purple-400 hover:underline flex items-center gap-1"
-                  >
-                    <i className="fa-solid fa-external-link text-[10px]"></i> Open Storefront in new tab
-                  </a>
-                </div>
               </div>
 
               {/* Admin URL Card */}
-              <div className="bg-slate-800/80 rounded-2xl p-4 border border-slate-700">
+              <div className="bg-[#0d0d14] rounded-2xl p-4 border border-purple-900/50">
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span className="text-xs font-black text-white">2. Power Admin Panel URL</span>
                   </div>
                   <button
+                    type="button"
                     onClick={() => copyToClipboard(adminUrl, 'Admin Panel URL')}
-                    className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20"
+                    className="text-[11px] font-bold text-emerald-300 hover:text-white flex items-center gap-1 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-600/40 cursor-pointer"
                   >
                     <i className="fa-solid fa-copy"></i>
                     <span>Copy</span>
                   </button>
                 </div>
-                <p className="text-xs text-slate-400 font-mono break-all bg-slate-950/60 p-2 rounded-xl select-all border border-slate-800">
+                <p className="text-xs text-purple-200 font-mono break-all bg-[#13131a] p-2.5 rounded-xl select-all border border-purple-900/40">
                   {adminUrl}
                 </p>
-                <div className="mt-2 flex gap-2">
-                  <a
-                    href={adminUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1"
-                  >
-                    <i className="fa-solid fa-external-link text-[10px]"></i> Open Admin in new tab
-                  </a>
-                </div>
               </div>
             </div>
 
             <div className="flex justify-end">
               <button
+                type="button"
                 onClick={() => setUrlModalOpen(false)}
-                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
+                className="px-5 py-2.5 bg-purple-950/80 hover:bg-purple-900 text-white border border-purple-700/50 rounded-xl text-xs font-bold transition cursor-pointer"
               >
                 Close
               </button>

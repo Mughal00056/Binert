@@ -376,19 +376,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     }
   };
 
-  // Product Actions (Instant 0ms Storefront + Firebase Sync)
-  const syncProductsEverywhere = async (updatedProducts: Product[], toastMsg?: string, toastType: 'success' | 'info' | 'error' = 'success') => {
-    setState((prev) => ({ ...prev, products: updatedProducts }));
+  // Broadcast helper for 0ms cross-tab sync between Admin and Storefront
+  const broadcastSync = (payload: Partial<StoreState>) => {
     try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('apex_realtime_sync_channel');
+        bc.postMessage({ type: 'STORE_UPDATE', payload, timestamp: Date.now() });
+        bc.close();
+      }
+    } catch {}
+  };
+
+  // Product Actions (Instant 0ms Storefront + Firebase Sync)
+  const syncProductsEverywhere = async (
+    updatedProducts: Product[],
+    toastMsg?: string,
+    toastType: 'success' | 'info' | 'error' = 'success',
+    extraDeletedIds?: number[]
+  ) => {
+    let deletedIds: number[] = [];
+    try {
+      const raw = localStorage.getItem('apex_deleted_product_ids');
+      deletedIds = raw ? JSON.parse(raw) : [];
+    } catch {}
+    if (extraDeletedIds) {
+      deletedIds = Array.from(new Set([...deletedIds, ...extraDeletedIds]));
+    }
+    const activeIds = new Set(updatedProducts.map((p) => Number(p.id)));
+    deletedIds = deletedIds.filter((id) => !activeIds.has(Number(id)));
+
+    setState((prev) => ({
+      ...prev,
+      products: updatedProducts,
+      deletedProductIds: deletedIds,
+      productsCleared: updatedProducts.length === 0
+    }));
+    try {
+      localStorage.setItem('apex_deleted_product_ids', JSON.stringify(deletedIds));
       localStorage.setItem('apex_products_catalog', JSON.stringify(updatedProducts));
       localStorage.setItem('apex_products', JSON.stringify(updatedProducts));
       window.dispatchEvent(new Event('apex_products_updated'));
     } catch {}
+    broadcastSync({
+      products: updatedProducts,
+      deletedProductIds: deletedIds,
+      productsCleared: updatedProducts.length === 0
+    });
     if (toastMsg) showToast(toastMsg, toastType);
 
     try {
       setSyncStatus('saving');
-      await updateFirebasePartial({ products: updatedProducts });
+      await updateFirebasePartial({
+        products: updatedProducts,
+        deletedProductIds: deletedIds,
+        productsCleared: updatedProducts.length === 0
+      });
       setSyncStatus('synced');
     } catch {
       setSyncStatus('error');
@@ -428,8 +470,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   const handleDeleteProduct = async (id: number) => {
-    const updated = state.products.filter((p) => p.id !== id);
-    await syncProductsEverywhere(updated, 'Product deleted from store', 'info');
+    const updated = state.products.filter((p) => Number(p.id) !== Number(id));
+    await syncProductsEverywhere(updated, 'Product deleted permanently from store', 'info', [Number(id)]);
   };
 
   const handleToggleProductPublic = async (id: number) => {
@@ -475,15 +517,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   // Category Actions (Add Category, Add/Change/Delete Category Image, Delete Category)
-  const syncCategoriesEverywhere = async (updatedCategories: CategoryItem[], toastMsg?: string) => {
-    setState((prev) => ({ ...prev, categories: updatedCategories }));
+  const syncCategoriesEverywhere = async (
+    updatedCategories: CategoryItem[],
+    toastMsg?: string,
+    extraDeletedCatIds?: string[],
+    resetDeleted?: boolean
+  ) => {
+    let deletedCatIds: string[] = [];
+    if (!resetDeleted) {
+      try {
+        const raw = localStorage.getItem('apex_deleted_category_ids');
+        deletedCatIds = raw ? JSON.parse(raw) : [];
+      } catch {}
+      if (extraDeletedCatIds) {
+        deletedCatIds = Array.from(new Set([...deletedCatIds, ...extraDeletedCatIds]));
+      }
+      const activeCatIds = new Set(updatedCategories.map((c) => String(c.id)));
+      deletedCatIds = deletedCatIds.filter((id) => !activeCatIds.has(String(id)));
+    }
+
+    setState((prev) => ({
+      ...prev,
+      categories: updatedCategories,
+      deletedCategoryIds: deletedCatIds
+    }));
     try {
+      localStorage.setItem('apex_deleted_category_ids', JSON.stringify(deletedCatIds));
       localStorage.setItem('apex_categories', JSON.stringify(updatedCategories));
       window.dispatchEvent(new Event('apex_categories_updated'));
     } catch {}
+    broadcastSync({ categories: updatedCategories, deletedCategoryIds: deletedCatIds });
     try {
       setSyncStatus('saving');
-      await updateFirebasePartial({ categories: updatedCategories });
+      await updateFirebasePartial({
+        categories: updatedCategories,
+        deletedCategoryIds: deletedCatIds
+      });
       setSyncStatus('synced');
       if (toastMsg) showToast(toastMsg, 'success');
     } catch {
@@ -521,13 +590,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   const handleDeleteCategory = async (categoryId: string | number) => {
+    const idStr = String(categoryId);
     const currentCats = Array.isArray(state.categories) ? state.categories : FALLBACK_CATEGORIES;
-    const updated = currentCats.filter((c) => String(c.id) !== String(categoryId));
-    await syncCategoriesEverywhere(updated, 'Category deleted!');
+    const updated = currentCats.filter((c) => String(c.id) !== idStr);
+    await syncCategoriesEverywhere(updated, 'Category deleted permanently!', [idStr]);
   };
 
   const handleResetCategories = async () => {
-    await syncCategoriesEverywhere(FALLBACK_CATEGORIES, 'Categories reset to default!');
+    await syncCategoriesEverywhere(FALLBACK_CATEGORIES, 'Categories reset to default!', [], true);
   };
 
   // Section Actions
@@ -801,55 +871,130 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    const updated = state.orders.filter((o) => String(o.id) !== String(orderId));
-    setState((prev) => ({ ...prev, orders: updated }));
+    const idStr = String(orderId).trim();
+    let deletedOrderIds: string[] = [];
     try {
+      const raw = localStorage.getItem('apex_deleted_order_ids');
+      deletedOrderIds = raw ? JSON.parse(raw) : [];
+    } catch {}
+    if (!deletedOrderIds.includes(idStr)) {
+      deletedOrderIds.push(idStr);
+    }
+
+    const updated = state.orders.filter((o) => String(o.id).trim() !== idStr);
+    const updatedNotifs = state.notifications.filter((n) => String(n.orderId || '') !== idStr);
+
+    setState((prev) => ({
+      ...prev,
+      orders: updated,
+      notifications: updatedNotifs,
+      deletedOrderIds,
+      ordersCleared: updated.length === 0
+    }));
+    try {
+      localStorage.setItem('apex_deleted_order_ids', JSON.stringify(deletedOrderIds));
       localStorage.setItem('apex_orders', JSON.stringify(updated));
+      localStorage.setItem('apex_notifications', JSON.stringify(updatedNotifs));
       window.dispatchEvent(new Event('apex_orders_updated'));
     } catch {}
+    broadcastSync({
+      orders: updated,
+      notifications: updatedNotifs,
+      deletedOrderIds,
+      ordersCleared: updated.length === 0
+    });
 
-    if (selectedOrder && String(selectedOrder.id) === String(orderId)) {
+    if (selectedOrder && String(selectedOrder.id).trim() === idStr) {
       setSelectedOrder(null);
       setOrderDetailOpen(false);
     }
     try {
       setSyncStatus('saving');
-      await updateFirebasePartial({ orders: updated });
+      await updateFirebasePartial({
+        orders: updated,
+        notifications: updatedNotifs,
+        deletedOrderIds,
+        ordersCleared: updated.length === 0
+      });
       setSyncStatus('synced');
-      showToast(`Order #${String(orderId).slice(-6)} deleted permanently`, 'info');
+      showToast(`Order #${idStr.slice(-6)} permanently deleted everywhere`, 'info');
     } catch {
       setSyncStatus('error');
     }
   };
 
   const handleClearAllOrders = async () => {
-    setState((prev) => ({ ...prev, orders: [] }));
+    let deletedOrderIds: string[] = [];
     try {
+      const raw = localStorage.getItem('apex_deleted_order_ids');
+      deletedOrderIds = raw ? JSON.parse(raw) : [];
+    } catch {}
+    const currentOrderIds = state.orders.map((o) => String(o.id).trim());
+    deletedOrderIds = Array.from(new Set([...deletedOrderIds, ...currentOrderIds]));
+
+    setState((prev) => ({
+      ...prev,
+      orders: [],
+      deletedOrderIds,
+      ordersCleared: true
+    }));
+    try {
+      localStorage.setItem('apex_deleted_order_ids', JSON.stringify(deletedOrderIds));
       localStorage.setItem('apex_orders', JSON.stringify([]));
       window.dispatchEvent(new Event('apex_orders_updated'));
     } catch {}
+    broadcastSync({
+      orders: [],
+      deletedOrderIds,
+      ordersCleared: true
+    });
     try {
       setSyncStatus('saving');
-      await updateFirebasePartial({ orders: [] });
+      await updateFirebasePartial({
+        orders: [],
+        deletedOrderIds,
+        ordersCleared: true
+      });
       setSyncStatus('synced');
-      showToast('All orders cleared', 'info');
+      showToast('All orders permanently cleared from Admin & User panel', 'info');
     } catch {
       setSyncStatus('error');
     }
   };
 
   // User Management Actions (Add User, Delete User, Clear All Users)
-  const syncUsersEverywhere = async (updatedUsers: NonNullable<StoreState['users']>, toastMsg?: string, toastType: 'success' | 'info' = 'success') => {
-    setState((prev) => ({ ...prev, users: updatedUsers }));
+  const syncUsersEverywhere = async (
+    updatedUsers: NonNullable<StoreState['users']>,
+    deletedEmailsList: string[],
+    toastMsg?: string,
+    toastType: 'success' | 'info' = 'success'
+  ) => {
+    const cleanDeleted = Array.from(new Set(deletedEmailsList.map((e) => e.trim().toLowerCase()).filter(Boolean)));
+    setState((prev) => ({
+      ...prev,
+      users: updatedUsers,
+      deletedUserEmails: cleanDeleted,
+      usersCleared: updatedUsers.length === 0
+    }));
     try {
+      localStorage.setItem('apex_deleted_user_emails', JSON.stringify(cleanDeleted));
       localStorage.setItem('apex_registered_users', JSON.stringify(updatedUsers));
       window.dispatchEvent(new Event('apex_users_updated'));
     } catch {}
+    broadcastSync({
+      users: updatedUsers,
+      deletedUserEmails: cleanDeleted,
+      usersCleared: updatedUsers.length === 0
+    });
     if (toastMsg) showToast(toastMsg, toastType);
 
     try {
       setSyncStatus('saving');
-      await updateFirebasePartial({ users: updatedUsers });
+      await updateFirebasePartial({
+        users: updatedUsers,
+        deletedUserEmails: cleanDeleted,
+        usersCleared: updatedUsers.length === 0
+      });
       setSyncStatus('synced');
     } catch {
       setSyncStatus('error');
@@ -862,16 +1007,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     const cleanPassword = userData.password.trim() || '123456';
     if (!cleanEmail) return;
 
+    let deletedList: string[] = [];
     try {
       const deletedRaw = localStorage.getItem('apex_deleted_user_emails');
       if (deletedRaw) {
-        const deletedList: string[] = JSON.parse(deletedRaw);
-        localStorage.setItem(
-          'apex_deleted_user_emails',
-          JSON.stringify(deletedList.filter((e) => e !== cleanEmail))
-        );
+        deletedList = JSON.parse(deletedRaw);
       }
     } catch {}
+    deletedList = deletedList.filter((e) => e.trim().toLowerCase() !== cleanEmail);
 
     const currentUsers = Array.isArray(state.users) ? state.users : [];
     const exists = currentUsers.some((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
@@ -895,7 +1038,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
 
     await syncUsersEverywhere(
       updatedUsers,
-      exists ? `User "${cleanEmail}" updated!` : `User "${cleanEmail}" added!`,
+      deletedList,
+      exists ? `User "${cleanEmail}" updated & unblocked!` : `User "${cleanEmail}" created & active!`,
       'success'
     );
   };
@@ -910,12 +1054,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     );
     const emailToBlock = (matchedUser?.email || emailOrId).trim().toLowerCase();
 
+    let deletedList: string[] = [];
     try {
       const deletedRaw = localStorage.getItem('apex_deleted_user_emails');
-      const deletedList: string[] = deletedRaw ? JSON.parse(deletedRaw) : [];
+      deletedList = deletedRaw ? JSON.parse(deletedRaw) : [];
       if (!deletedList.includes(emailToBlock)) {
         deletedList.push(emailToBlock);
-        localStorage.setItem('apex_deleted_user_emails', JSON.stringify(deletedList));
       }
       const currUserRaw = localStorage.getItem('apex_current_user');
       if (currUserRaw) {
@@ -932,19 +1076,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         (u.email || '').trim().toLowerCase() !== emailToBlock
     );
 
-    await syncUsersEverywhere(updatedUsers, `User "${emailToBlock}" deleted!`, 'info');
+    await syncUsersEverywhere(
+      updatedUsers,
+      deletedList,
+      `User "${emailToBlock}" deleted & permanently blocked from login!`,
+      'info'
+    );
   };
 
   const handleClearAllUsers = async () => {
+    let deletedList: string[] = [];
     try {
+      const existingRaw = localStorage.getItem('apex_deleted_user_emails');
+      const existing: string[] = existingRaw ? JSON.parse(existingRaw) : [];
       const allEmails = [
+        ...existing,
         ...(state.users || []).map((u) => (u.email || '').trim().toLowerCase()),
         ...(state.orders || []).map((o) => (o.email || '').trim().toLowerCase())
       ].filter(Boolean);
-      localStorage.setItem('apex_deleted_user_emails', JSON.stringify(Array.from(new Set(allEmails))));
+      deletedList = Array.from(new Set(allEmails));
       localStorage.removeItem('apex_current_user');
     } catch {}
-    await syncUsersEverywhere([], 'All users deleted!', 'info');
+    await syncUsersEverywhere([], deletedList, 'All users deleted & blocked from login!', 'info');
   };
 
   // Notifications Actions
@@ -1284,6 +1437,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         return { title: 'Promotions & Coupon Discounts', icon: 'fa-ticket' };
       case 'orders':
         return { title: 'Customer Orders & Verification', icon: 'fa-receipt' };
+      case 'users':
+        return { title: 'User Accounts & Login Control', icon: 'fa-user-shield' };
       case 'notifications':
         return { title: 'Broadcast Alerts & Notifications', icon: 'fa-bell' };
       case 'transcript':
@@ -1345,6 +1500,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           sections: state.sections.length,
           promos: state.promos.length,
           orders: state.orders.length,
+          users: (state.users || []).length,
           notifications: state.notifications.length
         }}
       />
@@ -1362,9 +1518,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           onSwitchToStorefront={onSwitchToStorefront || (() => setStorePreviewModalOpen(true))}
           onShowToast={showToast}
+          featureToggles={featureToggles}
+          onUpdateToggle={handleUpdateFeatureToggle}
+          onOpenFeaturesTab={() => setCurrentTab('features')}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
           {currentTab === 'dashboard' && (
             <DashboardTab
               state={state}
@@ -1466,10 +1625,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
             />
           )}
 
-          {currentTab === 'orders' && (
+          {(currentTab === 'orders' || currentTab === 'users') && (
             <OrdersTab
               orders={state.orders}
               users={state.users || []}
+              deletedUserEmails={state.deletedUserEmails || []}
+              mode={currentTab === 'users' ? 'users' : 'all'}
               onViewOrder={(order) => {
                 setSelectedOrder(order);
                 setOrderDetailOpen(true);

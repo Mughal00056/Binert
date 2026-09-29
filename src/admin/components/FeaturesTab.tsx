@@ -18,7 +18,15 @@ interface FeatureItemConfig {
 }
 
 const FEATURE_LIST: FeatureItemConfig[] = [
-  // Storefront UI
+  // Storefront UI & Navigation Menu
+  {
+    key: 'sideMenu',
+    title: 'Navigation Side Menu Drawer',
+    category: 'storefront',
+    description: 'Controls the hamburger navigation menu button and slide-out side drawer in the storefront.',
+    icon: 'fa-bars',
+    badge: 'Menu'
+  },
   {
     key: 'splash',
     title: 'Futuristic Splash Screen',
@@ -177,45 +185,51 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({
   onEnableAll,
   onDisableAll
 }) => {
-  const activeCount = Object.values(featureToggles).filter(Boolean).length;
-  const totalCount = Object.keys(featureToggles).length;
+  const activeCount = FEATURE_LIST.filter((f) => featureToggles[f.key] !== false).length;
+  const totalCount = FEATURE_LIST.length;
 
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 rounded-2xl p-6 text-white border border-indigo-500/20 shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-96 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-500/20 via-purple-500/10 to-transparent pointer-events-none" />
-        
+      <div className="bg-gradient-to-r from-[#13131a] via-purple-950/80 to-[#13131a] rounded-2xl p-5 sm:p-6 text-white border border-purple-800/50 shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 bottom-0 w-96 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/20 via-fuchsia-500/10 to-transparent pointer-events-none" />
+
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-semibold mb-2">
-              <i className="fa-solid fa-sliders text-indigo-400"></i>
-              Feature Control Center
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-xs font-semibold mb-2">
+              <i className="fa-solid fa-sliders text-purple-400"></i>
+              Menu &amp; Feature Control Center
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white">
-              Feature Enable / Disable Switches
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              Feature &amp; Menu ON / OFF Switches
             </h1>
-            <p className="text-sm text-slate-300 mt-1 max-w-xl">
-              Turn any feature ON or OFF in real-time. Changes are instantly synchronized across the live storefront and saved to Firebase.
+            <p className="text-xs sm:text-sm text-purple-200/80 mt-1 max-w-xl">
+              Turn the Storefront Menu or any feature ON or OFF in real-time. Changes sync immediately to all customers on Android &amp; Desktop.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-center">
-              <div className="text-2xl font-black text-emerald-400">{activeCount} / {totalCount}</div>
-              <div className="text-[11px] uppercase tracking-wider text-slate-300 font-bold">Active Features</div>
+            <div className="bg-[#0a0a0f]/90 px-4 py-2 rounded-xl border border-purple-700/40 text-center">
+              <div className="text-xl sm:text-2xl font-black text-emerald-400">
+                {activeCount} / {totalCount}
+              </div>
+              <div className="text-[10px] uppercase tracking-wider text-purple-300 font-bold">
+                Active Features
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={onEnableAll}
-                className="px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-900/30 flex items-center gap-1.5"
+                className="px-3.5 py-2.5 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-950/50 flex items-center gap-1.5 cursor-pointer"
               >
                 <i className="fa-solid fa-check-double"></i> Enable All
               </button>
               <button
+                type="button"
                 onClick={onDisableAll}
-                className="px-3.5 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md shadow-rose-900/30 flex items-center gap-1.5"
+                className="px-3.5 py-2.5 text-xs font-black rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md shadow-rose-950/50 flex items-center gap-1.5 cursor-pointer"
               >
                 <i className="fa-solid fa-ban"></i> Disable All
               </button>
@@ -226,11 +240,11 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({
 
       {/* Categories Grid */}
       {(['storefront', 'interactive', 'marketing', 'system'] as const).map((cat) => {
-        const items = FEATURE_LIST.filter(item => item.category === cat);
+        const items = FEATURE_LIST.filter((item) => item.category === cat);
         const catTitles: Record<string, { title: string; desc: string; icon: string }> = {
           storefront: {
-            title: 'Storefront Layout & Sections',
-            desc: 'Visual modules rendered on the customer homepage',
+            title: 'Storefront Menu, Layout & Sections',
+            desc: 'Navigation drawer menu and visual modules rendered on the customer homepage',
             icon: 'fa-store'
           },
           interactive: {
@@ -251,35 +265,39 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({
         };
 
         return (
-          <div key={cat} className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
-            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-100">
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold">
+          <div
+            key={cat}
+            className="bg-[#13131a] rounded-2xl p-4 sm:p-6 border border-purple-900/50 shadow-xl"
+          >
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-purple-900/40">
+              <div className="w-9 h-9 rounded-xl bg-purple-950/80 border border-purple-700/50 text-purple-300 flex items-center justify-center text-sm font-bold">
                 <i className={`fa-solid ${catTitles[cat].icon}`}></i>
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">{catTitles[cat].title}</h3>
-                <p className="text-xs text-slate-500">{catTitles[cat].desc}</p>
+                <h3 className="text-sm sm:text-base font-black text-white">{catTitles[cat].title}</h3>
+                <p className="text-xs text-purple-300/70">{catTitles[cat].desc}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {items.map((feat) => {
-                const isEnabled = !!featureToggles[feat.key];
+                const isEnabled = featureToggles[feat.key] !== false;
                 return (
                   <div
                     key={feat.key}
-                    className={`p-4 rounded-xl border transition-all duration-200 flex items-start justify-between gap-3 ${
+                    onClick={() => onUpdateToggle(feat.key, !isEnabled)}
+                    className={`p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 cursor-pointer select-none ${
                       isEnabled
-                        ? 'border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50/60'
-                        : 'border-slate-200 bg-slate-50/60 opacity-70 hover:opacity-100'
+                        ? 'border-purple-600/60 bg-[#181326] hover:border-purple-400 shadow-md shadow-purple-950/30'
+                        : 'border-purple-950/60 bg-[#0d0d14] opacity-75 hover:opacity-100'
                     }`}
                   >
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-sm transition-colors ${
                           isEnabled
-                            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-300'
-                            : 'bg-slate-200 text-slate-500'
+                            ? 'bg-gradient-to-tr from-purple-600 to-fuchsia-600 text-white shadow-md shadow-purple-900/40'
+                            : 'bg-[#1a1a24] text-purple-400/50 border border-purple-900/40'
                         }`}
                       >
                         <i className={`fa-solid ${feat.icon}`}></i>
@@ -287,45 +305,54 @@ export const FeaturesTab: React.FC<FeaturesTabProps> = ({
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="text-sm font-bold text-slate-900 truncate">
+                          <h4 className="text-xs sm:text-sm font-black text-white truncate">
                             {feat.title}
                           </h4>
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
                               isEnabled
-                                ? 'bg-indigo-100 text-indigo-700'
-                                : 'bg-slate-200 text-slate-600'
+                                ? 'bg-purple-900/70 text-purple-200 border border-purple-600/40'
+                                : 'bg-[#1a1a24] text-purple-400/60'
                             }`}
                           >
                             {feat.badge}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                        <p className="text-[11px] text-purple-300/70 mt-1 leading-relaxed">
                           {feat.description}
                         </p>
                       </div>
                     </div>
 
                     {/* Switch Toggle */}
-                    <div className="shrink-0 pt-0.5">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={isEnabled}
-                          onChange={(e) => onUpdateToggle(feat.key, e.target.checked)}
-                        />
-                        <div className="w-12 h-6.5 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
-                      </label>
-                      <div className="text-center mt-1">
+                    <div
+                      className="shrink-0 flex flex-col items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isEnabled}
+                        onClick={() => onUpdateToggle(feat.key, !isEnabled)}
+                        className={`relative inline-flex h-7 w-13 items-center rounded-full border transition-all duration-200 cursor-pointer ${
+                          isEnabled
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 border-emerald-400 shadow-md shadow-emerald-950/50'
+                            : 'bg-[#1f1f2e] border-purple-800/50'
+                        }`}
+                      >
                         <span
-                          className={`text-[10px] font-extrabold uppercase tracking-wider ${
-                            isEnabled ? 'text-emerald-600' : 'text-slate-400'
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                            isEnabled ? 'translate-x-6' : 'translate-x-1'
                           }`}
-                        >
-                          {isEnabled ? 'ENABLED' : 'DISABLED'}
-                        </span>
-                      </div>
+                        />
+                      </button>
+                      <span
+                        className={`text-[9px] font-black uppercase tracking-wider ${
+                          isEnabled ? 'text-emerald-400' : 'text-purple-400/50'
+                        }`}
+                      >
+                        {isEnabled ? 'ON' : 'OFF'}
+                      </span>
                     </div>
                   </div>
                 );

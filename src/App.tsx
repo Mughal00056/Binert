@@ -90,7 +90,7 @@ const StorefrontLayout: React.FC = () => {
       {featureToggles.whatsAppFloat && <WhatsAppFloat />}
 
       {/* Menus, Cart & Modals */}
-      <SideMenu />
+      {featureToggles.sideMenu !== false && <SideMenu />}
       <CartDrawer />
 
       {featureToggles.searchPanel && <SearchPanel />}

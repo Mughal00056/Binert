@@ -20,10 +20,11 @@ export const SideMenu: React.FC = () => {
     openSignUp,
     logout,
     setReceiptOrder,
-    openOrdersView
+    openOrdersView,
+    featureToggles
   } = useStore();
 
-  if (!sideMenuOpen) return null;
+  if (!sideMenuOpen || featureToggles.sideMenu === false) return null;
 
   const userOrders = currentUser
     ? orders.filter((o) => o.email.toLowerCase() === currentUser.email.toLowerCase())
@@ -148,43 +149,49 @@ export const SideMenu: React.FC = () => {
             )}
           </button>
 
-          <button
-            onClick={() => {
-              setAiModalOpen(true);
-              setSideMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-extrabold bg-gradient-to-r from-purple-950/60 to-purple-900/40 text-purple-200 hover:text-white transition text-left cursor-pointer border-b border-purple-950/40"
-          >
-            <i className="fa-solid fa-wand-magic-sparkles w-5 text-center text-purple-300 animate-pulse" />
-            <span>AI Assistant</span>
-          </button>
+          {featureToggles.aiAssistant !== false && (
+            <button
+              onClick={() => {
+                setAiModalOpen(true);
+                setSideMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-extrabold bg-gradient-to-r from-purple-950/60 to-purple-900/40 text-purple-200 hover:text-white transition text-left cursor-pointer border-b border-purple-950/40"
+            >
+              <i className="fa-solid fa-wand-magic-sparkles w-5 text-center text-purple-300 animate-pulse" />
+              <span>AI Assistant</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setNotificationModalOpen(true);
-              setSideMenuOpen(false);
-            }}
-            className="w-full relative flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
-          >
-            <i className="fa-regular fa-bell w-5 text-center text-purple-400" />
-            <span>Notifications</span>
-            {unreadNotificationCount > 0 && (
-              <span className="ml-auto bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white text-[10px] font-black min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center shadow-md animate-[notifBadgePulse_1.8s_ease-in-out_infinite]">
-                {unreadNotificationCount}
-              </span>
-            )}
-          </button>
+          {featureToggles.notifications !== false && (
+            <button
+              onClick={() => {
+                setNotificationModalOpen(true);
+                setSideMenuOpen(false);
+              }}
+              className="w-full relative flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
+            >
+              <i className="fa-regular fa-bell w-5 text-center text-purple-400" />
+              <span>Notifications</span>
+              {unreadNotificationCount > 0 && (
+                <span className="ml-auto bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white text-[10px] font-black min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center shadow-md animate-[notifBadgePulse_1.8s_ease-in-out_infinite]">
+                  {unreadNotificationCount}
+                </span>
+              )}
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setCurrentView('promo');
-              setSideMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
-          >
-            <i className="fa-solid fa-tags w-5 text-center text-purple-400" />
-            <span>Promo Codes</span>
-          </button>
+          {featureToggles.promoCodes !== false && (
+            <button
+              onClick={() => {
+                setCurrentView('promo');
+                setSideMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
+            >
+              <i className="fa-solid fa-tags w-5 text-center text-purple-400" />
+              <span>Promo Codes</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -208,15 +215,17 @@ export const SideMenu: React.FC = () => {
             <span>About Owner</span>
           </button>
 
-          <a
-            href={storeInfo.whatsapp}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-green-400 hover:bg-green-950/20 transition text-left"
-          >
-            <i className="fa-brands fa-whatsapp w-5 text-center text-green-400 text-lg" />
-            <span>WhatsApp Channel</span>
-          </a>
+          {featureToggles.whatsAppFloat !== false && (
+            <a
+              href={storeInfo.whatsapp}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-green-400 hover:bg-green-950/20 transition text-left"
+            >
+              <i className="fa-brands fa-whatsapp w-5 text-center text-green-400 text-lg" />
+              <span>WhatsApp Channel</span>
+            </a>
+          )}
         </div>
 
         {/* Footer */}

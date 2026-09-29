@@ -5,6 +5,8 @@ import { formatPKR, timeAgo } from '../../lib/format';
 interface OrdersTabProps {
   orders: Order[];
   users?: RegisteredUserRecord[];
+  deletedUserEmails?: string[];
+  mode?: 'all' | 'orders' | 'users';
   onUpdateStatus: (orderId: string, status: OrderStatus, customOtp?: string) => void;
   onViewOrder: (order: Order) => void;
   onDeleteOrder: (orderId: string) => void;
@@ -17,6 +19,8 @@ interface OrdersTabProps {
 export const OrdersTab: React.FC<OrdersTabProps> = ({
   orders,
   users = [],
+  deletedUserEmails = [],
+  mode = 'all',
   onUpdateStatus,
   onViewOrder,
   onDeleteOrder,
@@ -32,12 +36,14 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   const [newUserPassword, setNewUserPassword] = useState('');
 
   // Read any deleted user emails so deleted users do not reappear from old orders
-  let deletedEmails: string[] = [];
+  let localDeletedEmails: string[] = [];
   try {
     const raw = localStorage.getItem('apex_deleted_user_emails');
-    if (raw) deletedEmails = JSON.parse(raw);
+    if (raw) localDeletedEmails = JSON.parse(raw);
   } catch {}
-  const deletedSet = new Set(deletedEmails.map((e) => e.trim().toLowerCase()));
+  const deletedSet = new Set(
+    [...deletedUserEmails, ...localDeletedEmails].map((e) => e.trim().toLowerCase()).filter(Boolean)
+  );
 
   // Build lookup of email -> password from users & orders
   const passwordMap = new Map<string, string>();
@@ -115,6 +121,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {mode !== 'users' && (
+        <>
       {/* Top Filter and Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
@@ -122,15 +130,15 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
             <i className="fa-solid fa-receipt text-emerald-400"></i> Customer Orders, OTP &amp; User Credentials
           </h2>
           <p className="text-xs text-purple-300/70 font-medium mt-0.5">
-            Send individual OTP to each buyer one by one, view customer email &amp; password, or delete orders
+            Send individual OTP to each buyer one by one, view customer email &amp; password, or delete orders permanently
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'all' | OrderStatus)}
-            className="text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-purple-800/60 outline-none focus:border-purple-400 bg-[#13131a] text-white font-semibold shadow-xs transition"
+            className="flex-1 sm:flex-initial text-xs sm:text-sm px-3.5 py-2.5 rounded-xl border border-purple-800/60 outline-none focus:border-purple-400 bg-[#13131a] text-white font-semibold shadow-xs transition"
           >
             <option value="all">All Orders ({orders.length})</option>
             <option value="pending">Pending / OTP ({stats.pending})</option>
@@ -143,10 +151,10 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
             <button
               type="button"
               onClick={onClearAllOrders}
-              className="bg-rose-950/80 hover:bg-rose-600 text-rose-200 hover:text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5 border border-rose-700/50 cursor-pointer"
+              className="bg-rose-950/80 hover:bg-rose-600 text-rose-200 hover:text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5 border border-rose-700/50 cursor-pointer shrink-0"
             >
               <i className="fa-solid fa-trash-can"></i>
-              <span className="hidden sm:inline">Clear All Orders</span>
+              <span>Clear All</span>
             </button>
           )}
         </div>
@@ -413,6 +421,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           </table>
         </div>
       </div>
+        </>
+      )}
 
       {/* Registered Users & Login Credentials Panel */}
       <div className="bg-[#13131a] rounded-2xl border border-purple-900/50 overflow-hidden shadow-xl">
@@ -420,16 +430,21 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           <div>
             <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
               <i className="fa-solid fa-user-shield text-purple-400"></i>
-              <span>User Accounts &amp; Login Credentials (Add &amp; Delete Users)</span>
+              <span>User Accounts &amp; Login Access Control (Add &amp; Delete Users)</span>
             </h3>
             <p className="text-xs text-purple-300/70 mt-0.5">
-              All users who signed in, registered, or placed orders with email and password — add or delete any user
+              Deleted users are immediately logged out and permanently blocked from signing in again
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-3 py-1 rounded-full bg-purple-950 text-purple-300 border border-purple-700/50 text-xs font-black">
-              {combinedUsers.length} Users
+              {combinedUsers.length} Active Users
             </span>
+            {deletedSet.size > 0 && (
+              <span className="px-3 py-1 rounded-full bg-rose-950/80 text-rose-300 border border-rose-700/50 text-xs font-black">
+                {deletedSet.size} Blocked from Login
+              </span>
+            )}
             {combinedUsers.length > 0 && onClearAllUsers && (
               <button
                 type="button"
@@ -437,7 +452,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                 className="px-3 py-1.5 rounded-xl bg-rose-950/80 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-700/50 text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
               >
                 <i className="fa-solid fa-user-xmark text-xs"></i>
-                <span>Delete All Users</span>
+                <span>Delete &amp; Block All Users</span>
               </button>
             )}
           </div>
@@ -538,10 +553,10 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                             type="button"
                             onClick={() => onDeleteUser(u.email || u.id)}
                             className="px-3 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-700/50 text-xs font-bold transition cursor-pointer inline-flex items-center gap-1.5"
-                            title={`Delete user ${u.email}`}
+                            title={`Delete & block user ${u.email}`}
                           >
-                            <i className="fa-solid fa-trash-can text-xs"></i>
-                            <span>Delete User</span>
+                            <i className="fa-solid fa-user-slash text-xs"></i>
+                            <span>Delete &amp; Block Login</span>
                           </button>
                         )}
                       </td>
@@ -552,6 +567,43 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Permanently Deleted & Blocked Emails Section */}
+        {deletedSet.size > 0 && (
+          <div className="p-4 bg-[#0d0d14] border-t border-purple-900/40">
+            <p className="text-[11px] font-black uppercase tracking-wider text-rose-400 mb-2 flex items-center gap-1.5">
+              <i className="fa-solid fa-ban"></i>
+              <span>Deleted Users (Blocked from Logging In Again):</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {Array.from(deletedSet).map((blockedEmail) => (
+                <div
+                  key={blockedEmail}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-950/40 border border-rose-700/40 text-xs font-mono text-rose-200"
+                >
+                  <i className="fa-solid fa-lock text-rose-400 text-[10px]"></i>
+                  <span>{blockedEmail}</span>
+                  {onAddUser && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAddUser({
+                          name: blockedEmail.split('@')[0],
+                          email: blockedEmail,
+                          password: passwordMap.get(blockedEmail) || '123456'
+                        })
+                      }
+                      className="ml-1 px-2 py-0.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-white font-sans font-bold text-[10px] transition cursor-pointer"
+                      title="Unblock & Restore User Login"
+                    >
+                      Unblock
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
