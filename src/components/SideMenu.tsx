@@ -125,29 +125,33 @@ export const SideMenu: React.FC = () => {
 
         {/* Menu Items */}
         <div className="flex-1 overflow-y-auto py-2">
-          <button
-            onClick={() => {
-              goHome();
-              setSideMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
-          >
-            <i className="fa-solid fa-house w-5 text-center text-purple-400" />
-            <span>Home</span>
-          </button>
+          {featureToggles.menuHome !== false && (
+            <button
+              onClick={() => {
+                goHome();
+                setSideMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
+            >
+              <i className="fa-solid fa-house w-5 text-center text-purple-400" />
+              <span>Home</span>
+            </button>
+          )}
 
-          <button
-            onClick={openOrdersView}
-            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
-          >
-            <i className="fa-solid fa-box-open w-5 text-center text-purple-400" />
-            <span>My Orders &amp; Tracking</span>
-            {userOrders.length > 0 && (
-              <span className="ml-auto bg-purple-900/80 text-purple-200 text-[10px] font-black min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center border border-purple-700/40">
-                {userOrders.length}
-              </span>
-            )}
-          </button>
+          {featureToggles.menuOrders !== false && (
+            <button
+              onClick={openOrdersView}
+              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
+            >
+              <i className="fa-solid fa-box-open w-5 text-center text-purple-400" />
+              <span>My Orders &amp; Tracking</span>
+              {userOrders.length > 0 && (
+                <span className="ml-auto bg-purple-900/80 text-purple-200 text-[10px] font-black min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center border border-purple-700/40">
+                  {userOrders.length}
+                </span>
+              )}
+            </button>
+          )}
 
           {featureToggles.aiAssistant !== false && (
             <button
@@ -193,27 +197,31 @@ export const SideMenu: React.FC = () => {
             </button>
           )}
 
-          <button
-            onClick={() => {
-              setCurrentView('contact');
-              setSideMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
-          >
-            <i className="fa-solid fa-envelope w-5 text-center text-purple-400" />
-            <span>Contact Us</span>
-          </button>
+          {featureToggles.menuContact !== false && (
+            <button
+              onClick={() => {
+                setCurrentView('contact');
+                setSideMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
+            >
+              <i className="fa-solid fa-envelope w-5 text-center text-purple-400" />
+              <span>Contact Us</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setCurrentView('about');
-              setSideMenuOpen(false);
-            }}
-            className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
-          >
-            <i className="fa-solid fa-circle-info w-5 text-center text-purple-400" />
-            <span>About Owner</span>
-          </button>
+          {featureToggles.menuAbout !== false && (
+            <button
+              onClick={() => {
+                setCurrentView('about');
+                setSideMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3.5 px-5 py-3.5 text-sm font-bold text-purple-100 hover:bg-purple-900/30 hover:text-purple-300 transition text-left cursor-pointer border-b border-purple-950/40"
+            >
+              <i className="fa-solid fa-circle-info w-5 text-center text-purple-400" />
+              <span>About Owner</span>
+            </button>
+          )}
 
           {featureToggles.whatsAppFloat !== false && (
             <a

@@ -1,4 +1,5 @@
-import { FeatureToggles, DEFAULT_FEATURE_TOGGLES } from '../types';
+import { FeatureToggles, DEFAULT_FEATURE_TOGGLES, OrderDeliveryInfo } from '../types';
+export type { OrderDeliveryInfo };
 
 export type OrderStatus =
   | 'pending'
@@ -88,6 +89,7 @@ export interface Order {
   trackingNumber?: string;
   approvalSecondsLeft?: number;
   approvalExpiresAt?: number;
+  deliveryInfo?: OrderDeliveryInfo;
   timeline?: Array<{
     status: OrderStatus | string;
     title: string;
@@ -159,6 +161,8 @@ export interface NotificationItem {
   sender?: string;
   targetEmail?: string;
   orderId?: string | number;
+  otp?: string;
+  deliveryInfo?: OrderDeliveryInfo;
 }
 
 export interface TranscriptSettings {
@@ -174,10 +178,31 @@ export interface TranscriptSettings {
 export interface StoreSettings {
   name: string;
   owner: string;
+  ownerPhoto?: string;
+  ownerRole?: string;
+  ownerBio?: string;
   email: string;
   phone: string;
   city: string;
   whatsapp: string;
+  instagram?: string;
+  tiktok?: string;
+  youtube?: string;
+  facebook?: string;
+  telegram?: string;
+  twitter?: string;
+  showOwnerPhoto?: boolean;
+  showOwnerName?: boolean;
+  showEmail?: boolean;
+  showPhone?: boolean;
+  showCity?: boolean;
+  showWhatsapp?: boolean;
+  showInstagram?: boolean;
+  showTiktok?: boolean;
+  showYoutube?: boolean;
+  showFacebook?: boolean;
+  showTelegram?: boolean;
+  showTwitter?: boolean;
 }
 
 export interface AnnouncementSettings {

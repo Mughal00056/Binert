@@ -315,7 +315,7 @@ export const PaymentTimerModal: React.FC = () => {
                   ) : (
                     <>
                       <i className="fa-solid fa-circle-check" />
-                      <span>Confirm Order &amp; Complete Checkout</span>
+                      <span>Verify OTP → Start Order Processing</span>
                     </>
                   )}
                 </button>
@@ -323,18 +323,78 @@ export const PaymentTimerModal: React.FC = () => {
             </div>
           )}
 
-          {/* STAGE 3: ORDER VERIFIED / DELIVERED */}
+          {/* STAGE 3: ORDER VERIFIED / DELIVERED WITH PRODUCT LINK & DOWNLOAD */}
           {isVerifiedOrLater && (
             <div className="space-y-4">
-              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/40 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                  <i className="fa-solid fa-check text-lg" />
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/60 via-[#0e1c1b] to-[#13131a] border-2 border-emerald-500/60 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0 font-black">
+                    <i className="fa-solid fa-box-open text-base" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white">
+                      {order.deliveryInfo?.productName || 'Order Delivered — Product Package Ready! 🎉'}
+                    </h4>
+                    <p className="text-xs text-emerald-300 font-medium">
+                      Admin has delivered your product link, license key &amp; downloadable package!
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-white">Order Delivered Successfully! 🎉</h4>
-                  <p className="text-xs text-emerald-300 font-medium">
-                    OTP confirmed. Your order has been completed and delivered to you.
-                  </p>
+
+                {order.deliveryInfo && (
+                  <div className="p-3 rounded-xl bg-[#0a0a0f] border border-emerald-800/50 space-y-2 text-xs">
+                    {order.deliveryInfo.productLink && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-purple-300 font-bold">Product Link:</span>
+                        <a
+                          href={order.deliveryInfo.productLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono font-bold text-sky-300 hover:text-white underline truncate max-w-[220px]"
+                        >
+                          {order.deliveryInfo.productLink}
+                        </a>
+                      </div>
+                    )}
+                    {order.deliveryInfo.licenseKey && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-purple-300 font-bold">License Key:</span>
+                        <span className="font-mono font-black text-amber-300 select-all">
+                          {order.deliveryInfo.licenseKey}
+                        </span>
+                      </div>
+                    )}
+                    {order.deliveryInfo.deliveryNote && (
+                      <p className="text-[11px] text-purple-200/90 pt-1 border-t border-purple-900/40">
+                        {order.deliveryInfo.deliveryNote}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {order.deliveryInfo?.productLink && (
+                    <a
+                      href={order.deliveryInfo.productLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
+                    >
+                      <i className="fa-solid fa-up-right-from-square" />
+                      <span>Open Product Link</span>
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleClose();
+                      openOrdersView();
+                    }}
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-download" />
+                    <span>Download in My Orders</span>
+                  </button>
                 </div>
               </div>
 

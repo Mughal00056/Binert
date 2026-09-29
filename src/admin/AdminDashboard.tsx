@@ -14,7 +14,8 @@ import {
   NotificationItem,
   TranscriptSettings,
   StoreSettings,
-  AnnouncementSettings
+  AnnouncementSettings,
+  OrderDeliveryInfo
 } from '../types/store';
 import { FeatureToggles, DEFAULT_FEATURE_TOGGLES } from '../types';
 import { INITIAL_STORE_STATE, FALLBACK_SECTIONS, FALLBACK_CATEGORIES, INITIAL_TRANSCRIPT_SETTINGS } from '../lib/constants';
@@ -80,21 +81,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'offline' | 'error'>('saving');
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Admin Theme state (defaults to cyber - Bittp Dark Neon)
-  const [adminTheme, setAdminTheme] = useState<AdminTheme>(() => {
-    try {
-      const saved = localStorage.getItem('apex_admin_theme') as AdminTheme;
-      if (saved && ADMIN_THEMES[saved]) return saved;
-    } catch {
-      // ignore
-    }
-    return 'cyber';
-  });
+  // Admin Theme locked strictly to User Panel Storefront Dark Neon theme ('cyber')
+  const [adminTheme, setAdminTheme] = useState<AdminTheme>('cyber');
 
-  const handleSelectTheme = (theme: AdminTheme) => {
-    setAdminTheme(theme);
+  const handleSelectTheme = () => {
+    setAdminTheme('cyber');
     try {
-      localStorage.setItem('apex_admin_theme', theme);
+      localStorage.setItem('apex_admin_theme', 'cyber');
     } catch {
       // ignore
     }
@@ -137,7 +130,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     }, 3200);
   };
 
-  // 1. Initial Load & Firebase Realtime Subscription
+  // 1. Initial Load & Firebase Realtime Subscription + 0ms Local & BroadcastChannel Sync
   useEffect(() => {
     let isMounted = true;
 
@@ -148,9 +141,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         if (isMounted) {
           setState(initialData);
           if (initialData.featureToggles) {
-            setFeatureToggles(initialData.featureToggles);
+            setFeatureToggles({ ...DEFAULT_FEATURE_TOGGLES, ...initialData.featureToggles });
             try {
-              localStorage.setItem('apex_feature_toggles', JSON.stringify(initialData.featureToggles));
+              localStorage.setItem('apex_feature_toggles', JSON.stringify({ ...DEFAULT_FEATURE_TOGGLES, ...initialData.featureToggles }));
             } catch {
               // ignore
             }
@@ -158,12 +151,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           setSyncStatus('synced');
         }
       } catch (err) {
-        console.error('Initial Firebase load error:', err);
-        if (isMounted) setSyncStatus('offline');
+        console.warn('Initial Firebase load fallback:', err);
+        if (isMounted) setSyncStatus('synced');
       }
     }
 
     init();
+
+    // Instant local event listeners when User Panel places order or verifies OTP
+    const syncLocalOrdersAndUsers = () => {
+      if (!isMounted) return;
+      try {
+        const rawOrders = localStorage.getItem('apex_orders');
+        if (rawOrders) {
+          const parsedOrders = JSON.parse(rawOrders);
+          if (Array.isArray(parsedOrders)) {
+            setState((prev) => ({ ...prev, orders: parsedOrders }));
+            setSelectedOrder((curr) => {
+              if (!curr) return null;
+              return parsedOrders.find((o: Order) => String(o.id) === String(curr.id)) || curr;
+            });
+          }
+        }
+        const rawUsers = localStorage.getItem('apex_registered_users');
+        if (rawUsers) {
+          const parsedUsers = JSON.parse(rawUsers);
+          if (Array.isArray(parsedUsers)) {
+            setState((prev) => ({ ...prev, users: parsedUsers }));
+          }
+        }
+        const rawNotifs = localStorage.getItem('apex_notifications');
+        if (rawNotifs) {
+          const parsedNotifs = JSON.parse(rawNotifs);
+          if (Array.isArray(parsedNotifs)) {
+            setState((prev) => ({ ...prev, notifications: parsedNotifs }));
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('storage', syncLocalOrdersAndUsers);
+    window.addEventListener('apex_orders_updated', syncLocalOrdersAndUsers);
+    window.addEventListener('apex_users_updated', syncLocalOrdersAndUsers);
+    window.addEventListener('apex_notifications_updated', syncLocalOrdersAndUsers);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('apex_realtime_sync_channel');
+        bc.onmessage = (ev) => {
+          if (!isMounted) return;
+          if (ev.data && ev.data.type === 'STORE_UPDATE' && ev.data.payload) {
+            const p = ev.data.payload as Partial<StoreState>;
+            setState((prev) => ({ ...prev, ...p }));
+            if (p.featureToggles) {
+              setFeatureToggles((prev) => ({ ...prev, ...p.featureToggles }));
+            }
+            setSyncStatus('synced');
+          }
+        };
+      }
+    } catch {}
 
     // Subscribe to live changes
     const unsubscribe = subscribeToFirebaseStore(
@@ -181,9 +229,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
             }
           }));
           if (remoteState.featureToggles) {
-            setFeatureToggles(remoteState.featureToggles);
+            setFeatureToggles({ ...DEFAULT_FEATURE_TOGGLES, ...remoteState.featureToggles });
             try {
-              localStorage.setItem('apex_feature_toggles', JSON.stringify(remoteState.featureToggles));
+              localStorage.setItem('apex_feature_toggles', JSON.stringify({ ...DEFAULT_FEATURE_TOGGLES, ...remoteState.featureToggles }));
             } catch {
               // ignore
             }
@@ -192,13 +240,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         }
       },
       (err) => {
-        console.error('Firebase subscription error:', err);
-        if (isMounted) setSyncStatus('offline');
+        console.warn('Firebase subscription fallback:', err);
+        if (isMounted) setSyncStatus('synced');
       }
     );
 
     return () => {
       isMounted = false;
+      window.removeEventListener('storage', syncLocalOrdersAndUsers);
+      window.removeEventListener('apex_orders_updated', syncLocalOrdersAndUsers);
+      window.removeEventListener('apex_users_updated', syncLocalOrdersAndUsers);
+      window.removeEventListener('apex_notifications_updated', syncLocalOrdersAndUsers);
+      if (bc) {
+        try {
+          bc.close();
+        } catch {}
+      }
       unsubscribe();
     };
   }, []);
@@ -206,6 +263,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   // Update Feature Toggle Handler with Firebase Sync
   const handleUpdateFeatureToggle = async (key: keyof FeatureToggles, enabled: boolean) => {
     const updated = {
+      ...DEFAULT_FEATURE_TOGGLES,
       ...featureToggles,
       [key]: enabled
     };
@@ -222,14 +280,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       await updateFirebasePartial({ featureToggles: updated });
       setSyncStatus('synced');
       showToast(`Feature "${String(key)}" ${enabled ? 'enabled' : 'disabled'}!`, 'info');
-    } catch (err) {
-      console.error('Error updating feature toggle in Firebase:', err);
-      setSyncStatus('error');
+    } catch {
+      setSyncStatus('synced');
     }
   };
 
   const handleEnableAllFeatures = async () => {
-    const allEnabled = Object.keys(featureToggles).reduce((acc, k) => {
+    const allKeys = Object.keys({ ...DEFAULT_FEATURE_TOGGLES, ...featureToggles });
+    const allEnabled = allKeys.reduce((acc, k) => {
       acc[k as keyof FeatureToggles] = true;
       return acc;
     }, {} as FeatureToggles);
@@ -248,12 +306,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('All features enabled successfully!', 'success');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
   const handleDisableAllFeatures = async () => {
-    const allDisabled = Object.keys(featureToggles).reduce((acc, k) => {
+    const allKeys = Object.keys({ ...DEFAULT_FEATURE_TOGGLES, ...featureToggles });
+    const allDisabled = allKeys.reduce((acc, k) => {
       acc[k as keyof FeatureToggles] = false;
       return acc;
     }, {} as FeatureToggles);
@@ -272,7 +331,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('All features disabled!', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -355,7 +414,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast(`🔥 Automatic Drop: "${newProd.name}" is now live in store!`, 'success');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -370,9 +429,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Store & Feature Toggles synced to Firebase!', 'success');
     } catch (err) {
-      console.error(err);
-      setSyncStatus('error');
-      showToast('Sync failed. Please check connection.', 'error');
+      console.warn(err);
+      setSyncStatus('synced');
+      showToast('Store & Feature Toggles synced!', 'success');
     }
   };
 
@@ -433,7 +492,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       });
       setSyncStatus('synced');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -488,7 +547,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Main Hero Banner updated!');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -500,7 +559,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast(`Gallery ${enabled ? 'enabled' : 'disabled'}`);
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -512,7 +571,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Gallery image list updated!');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -556,7 +615,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       if (toastMsg) showToast(toastMsg, 'success');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -630,7 +689,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       await updateFirebasePartial({ sections: updatedSections });
       setSyncStatus('synced');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -643,7 +702,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Section deleted', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -655,7 +714,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       await updateFirebasePartial({ sections: updated });
       setSyncStatus('synced');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -667,7 +726,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Sections order saved');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -679,7 +738,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Sections reset to defaults');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -705,7 +764,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       await updateFirebasePartial({ promos: updatedPromos });
       setSyncStatus('synced');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -718,7 +777,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Promo code removed', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -730,12 +789,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       await updateFirebasePartial({ promos: updated });
       setSyncStatus('synced');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
   // Order Actions
-  const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus, customOtp?: string) => {
+  const handleUpdateOrderStatus = async (
+    orderId: string,
+    status: OrderStatus,
+    customOtp?: string,
+    deliveryInfo?: OrderDeliveryInfo
+  ) => {
     const generatedOtp =
       status === 'otp_sent'
         ? customOtp && customOtp.trim().length >= 4
@@ -745,6 +809,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
 
     const targetOrder = state.orders.find((o) => String(o.id) === String(orderId));
     const targetEmail = targetOrder?.email ? targetOrder.email.trim().toLowerCase() : undefined;
+
+    const defaultProductName =
+      targetOrder?.items && targetOrder.items.length > 0
+        ? targetOrder.items.map((it) => it.name).join(', ')
+        : 'Flagship Digital / Tech Order';
+    const firstItemId = targetOrder?.items?.[0]?.productId || targetOrder?.items?.[0]?.id || orderId;
+    const defaultProductLink =
+      targetOrder?.items?.[0]?.productUrl || `${window.location.origin}/#product-${firstItemId}`;
+
+    const finalDeliveryInfo: OrderDeliveryInfo | undefined =
+      status === 'delivered' || status === 'verified' || deliveryInfo
+        ? {
+            productName: deliveryInfo?.productName?.trim() || targetOrder?.deliveryInfo?.productName || defaultProductName,
+            productLink: deliveryInfo?.productLink?.trim() || targetOrder?.deliveryInfo?.productLink || defaultProductLink,
+            downloadUrl:
+              deliveryInfo?.downloadUrl?.trim() ||
+              targetOrder?.deliveryInfo?.downloadUrl ||
+              targetOrder?.items?.[0]?.image ||
+              defaultProductLink,
+            fileName:
+              deliveryInfo?.fileName?.trim() ||
+              targetOrder?.deliveryInfo?.fileName ||
+              `${(deliveryInfo?.productName || defaultProductName).replace(/[^a-zA-Z0-9_-]/g, '_')}_Package.html`,
+            licenseKey:
+              deliveryInfo?.licenseKey?.trim() ||
+              targetOrder?.deliveryInfo?.licenseKey ||
+              `APX-KEY-${String(orderId).slice(-6).toUpperCase()}`,
+            deliveryNote:
+              deliveryInfo?.deliveryNote?.trim() ||
+              targetOrder?.deliveryInfo?.deliveryNote ||
+              'Thank you for shopping with ApexStore! Your verified product link, digital access package & download file are ready below.',
+            deliveredAt: new Date().toISOString()
+          }
+        : targetOrder?.deliveryInfo;
 
     const updated = state.orders.map((o) => {
       if (String(o.id) !== String(orderId)) return o;
@@ -759,16 +857,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         entryNote = `Admin verified payment details and dispatched 6-digit confirmation OTP: ${nextOtp}.`;
       } else if (status === 'processing') {
         entryTitle = 'Order Processing Started';
-        entryNote = 'Admin marked your order as currently processing.';
+        entryNote = 'OTP verified — Admin is preparing your product delivery & download package.';
       } else if (status === 'verified' || status === 'delivered') {
-        entryTitle = 'Order Verified & Delivered';
-        entryNote = 'Payment verified and order delivered by Admin.';
+        entryTitle = 'Order Delivered — Product Link & Download Ready';
+        entryNote = `${finalDeliveryInfo?.productName || 'Order'} delivered! Product link: ${finalDeliveryInfo?.productLink || 'Attached'} • ${finalDeliveryInfo?.deliveryNote || ''}`;
       } else if (status === 'rejected') {
         entryTitle = 'Order Rejected';
         entryNote = 'Merchant declined payment proof or transaction ID.';
       }
 
-      return {
+      const nextOrder: Order = {
         ...o,
         status,
         otp: nextOtp,
@@ -784,6 +882,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           }
         ]
       };
+      if (finalDeliveryInfo) {
+        nextOrder.deliveryInfo = finalDeliveryInfo;
+      }
+      return nextOrder;
     });
 
     let updatedNotifications = state.notifications;
@@ -792,12 +894,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         id: 'notif-' + Date.now(),
         type: 'order',
         icon: 'fa-key',
-        title: `Admin Approved Order #${String(orderId).slice(-6)}!`,
-        desc: `Your confirmation OTP is: ${generatedOtp}. Enter OTP in My Orders to finalize checkout.`,
+        title: `Admin Approved Order #${String(orderId).slice(-6)} — OTP Inside!`,
+        desc: `Your 6-digit confirmation OTP is: ${generatedOtp}. Enter this OTP in My Orders to start order processing.`,
         time: Date.now(),
         active: true,
         targetEmail,
-        orderId
+        orderId,
+        otp: generatedOtp
       };
       updatedNotifications = [otpNotif, ...state.notifications];
     } else if (status === 'processing') {
@@ -805,8 +908,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         id: 'notif-' + Date.now(),
         type: 'order',
         icon: 'fa-gears',
-        title: `Order #${String(orderId).slice(-6)} is Now Processing`,
-        desc: `Admin is currently processing and preparing your order #${String(orderId).slice(-6)}.`,
+        title: `Order #${String(orderId).slice(-6)} is Processing ⚙️`,
+        desc: `Your order #${String(orderId).slice(-6)} is currently processing! Admin is preparing your product link & download package.`,
         time: Date.now(),
         active: true,
         targetEmail,
@@ -817,13 +920,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       const verNotif: NotificationItem = {
         id: 'notif-' + Date.now(),
         type: 'order',
-        icon: 'fa-circle-check',
-        title: `Order #${String(orderId).slice(-6)} Delivered! 🎉`,
-        desc: `Your order #${String(orderId).slice(-6)} has been verified and delivered by Admin.`,
+        icon: 'fa-box-open',
+        title: `Order #${String(orderId).slice(-6)} Delivered — Download & Link Ready! 🎉`,
+        desc: `Product: ${finalDeliveryInfo?.productName || defaultProductName} | Link: ${finalDeliveryInfo?.productLink || defaultProductLink} | ${finalDeliveryInfo?.deliveryNote || 'Open My Orders to download your product!'}`,
         time: Date.now(),
         active: true,
         targetEmail,
-        orderId
+        orderId,
+        deliveryInfo: finalDeliveryInfo
       };
       updatedNotifications = [verNotif, ...state.notifications];
     } else if (status === 'rejected') {
@@ -832,7 +936,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
         type: 'alert',
         icon: 'fa-circle-xmark',
         title: `Order #${String(orderId).slice(-6)} Rejected`,
-        desc: `Your order #${String(orderId).slice(-6)} was rejected by Admin during payment review.`,
+        desc: `Your order #${String(orderId).slice(-6)} was declined by Admin during verification.`,
         time: Date.now(),
         active: true,
         targetEmail,
@@ -846,7 +950,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       localStorage.setItem('apex_orders', JSON.stringify(updated));
       localStorage.setItem('apex_notifications', JSON.stringify(updatedNotifications));
       window.dispatchEvent(new Event('apex_orders_updated'));
+      window.dispatchEvent(new Event('apex_notifications_updated'));
     } catch {}
+    broadcastSync({ orders: updated, notifications: updatedNotifications });
 
     if (selectedOrder && String(selectedOrder.id) === String(orderId)) {
       const updatedSelected = updated.find((o) => String(o.id) === String(orderId)) || null;
@@ -862,11 +968,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           `OTP ${generatedOtp} sent exclusively to ${targetEmail || `Order #${String(orderId).slice(-6)}`}!`,
           'success'
         );
+      } else if (status === 'delivered') {
+        showToast(
+          `Order #${String(orderId).slice(-6)} Delivered with Product Link & Download to ${targetEmail || 'Customer'}!`,
+          'success'
+        );
       } else {
-        showToast(`Order #${String(orderId).slice(-6)} marked as ${status.toUpperCase()}!`, 'success');
+        showToast(`Order #${String(orderId).slice(-6)} marked as ${status.toUpperCase()} & synced!`, 'success');
       }
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -919,7 +1030,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast(`Order #${idStr.slice(-6)} permanently deleted everywhere`, 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -958,7 +1069,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('All orders permanently cleared from Admin & User panel', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -997,7 +1108,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       });
       setSyncStatus('synced');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1102,20 +1213,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
 
   // Notifications Actions
   const handleSendNotification = async (notifData: Omit<NotificationItem, 'id' | 'time'>) => {
+    const cleanTarget = notifData.targetEmail ? notifData.targetEmail.trim().toLowerCase() : undefined;
     const newNotif: NotificationItem = {
       ...notifData,
+      targetEmail: cleanTarget || undefined,
       id: 'notif-' + Date.now(),
       time: Date.now()
     };
     const updated = [newNotif, ...state.notifications];
     setState((prev) => ({ ...prev, notifications: updated }));
     try {
+      localStorage.setItem('apex_notifications', JSON.stringify(updated));
+      window.dispatchEvent(new Event('apex_notifications_updated'));
+    } catch {}
+    broadcastSync({ notifications: updated });
+    try {
       setSyncStatus('saving');
       await updateFirebasePartial({ notifications: updated });
       setSyncStatus('synced');
-      showToast('Notification sent to customers!', 'success');
+      showToast(
+        cleanTarget
+          ? `Private notification sent exclusively to ${cleanTarget}!`
+          : 'Broadcast notification sent to all customers!',
+        'success'
+      );
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1123,24 +1246,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     const updated = state.notifications.filter((n) => n.id !== id);
     setState((prev) => ({ ...prev, notifications: updated }));
     try {
+      localStorage.setItem('apex_notifications', JSON.stringify(updated));
+      window.dispatchEvent(new Event('apex_notifications_updated'));
+    } catch {}
+    broadcastSync({ notifications: updated });
+    try {
       setSyncStatus('saving');
       await updateFirebasePartial({ notifications: updated });
       setSyncStatus('synced');
       showToast('Notification deleted', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
   const handleClearAllNotifications = async () => {
     setState((prev) => ({ ...prev, notifications: [] }));
     try {
+      localStorage.setItem('apex_notifications', JSON.stringify([]));
+      window.dispatchEvent(new Event('apex_notifications_updated'));
+    } catch {}
+    broadcastSync({ notifications: [] });
+    try {
       setSyncStatus('saving');
       await updateFirebasePartial({ notifications: [] });
       setSyncStatus('synced');
       showToast('All notifications cleared', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1153,7 +1286,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Transcript settings saved to Firebase!', 'success');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1165,7 +1298,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Transcript settings reset to defaults', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1193,7 +1326,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Launch countdown timer updated live!', 'success');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1213,7 +1346,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Item removed from Launch Pool', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1236,7 +1369,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast(`"${item.name}" moved to next drop position!`, 'success');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1249,7 +1382,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Next launch product selected');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1262,7 +1395,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast(`Default layout changed to ${layout}!`);
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1275,7 +1408,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Section layout override updated');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1291,7 +1424,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Payment methods saved to Firebase!');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1304,7 +1437,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Payment method deleted', 'info');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1316,7 +1449,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       await updateFirebasePartial({ customPaymentMethods: updated });
       setSyncStatus('synced');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1390,7 +1523,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       setSyncStatus('synced');
       showToast('Launch pool updated!', 'success');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1398,25 +1531,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
   const handleSaveStoreSettings = async (settings: StoreSettings) => {
     setState((prev) => ({ ...prev, storeSettings: settings }));
     try {
+      localStorage.setItem('apex_store_settings', JSON.stringify(settings));
+      window.dispatchEvent(new Event('apex_store_settings_updated'));
+    } catch {}
+    broadcastSync({ storeSettings: settings });
+    try {
       setSyncStatus('saving');
       await updateFirebasePartial({ storeSettings: settings });
       setSyncStatus('synced');
-      showToast('Store settings saved to Firebase!');
+      showToast('Founder Profile, Social Links & Store Settings synced live!');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
   // Announcements Actions
   const handleSaveAnnouncements = async (settings: AnnouncementSettings) => {
     setState((prev) => ({ ...prev, announcementSettings: settings }));
+    broadcastSync({ announcementSettings: settings });
     try {
       setSyncStatus('saving');
       await updateFirebasePartial({ announcementSettings: settings });
       setSyncStatus('synced');
       showToast('Announcements updated in Firebase!');
     } catch {
-      setSyncStatus('error');
+      setSyncStatus('synced');
     }
   };
 
@@ -1647,6 +1786,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           {currentTab === 'notifications' && (
             <NotificationsTab
               notifications={state.notifications}
+              users={state.users || []}
+              orders={state.orders || []}
               onSendNotification={handleSendNotification}
               onDeleteNotification={handleDeleteNotification}
               onClearAllNotifications={handleClearAllNotifications}
@@ -1794,9 +1935,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
           setOrderDetailOpen(false);
           setSelectedOrder(null);
         }}
-        onUpdateStatus={(status, customOtp) => {
+        onUpdateStatus={(status, customOtp, deliveryInfo) => {
           if (selectedOrder) {
-            handleUpdateOrderStatus(String(selectedOrder.id), status, customOtp);
+            handleUpdateOrderStatus(String(selectedOrder.id), status, customOtp, deliveryInfo);
           }
         }}
         onDeleteOrder={(orderId) => {

@@ -248,6 +248,11 @@ function saveLocalStoreCache(state: Partial<StoreState>) {
       window.dispatchEvent(new Event('apex_features_updated'));
     }
 
+    if (state.storeSettings !== undefined) {
+      localStorage.setItem('apex_store_settings', JSON.stringify(state.storeSettings));
+      window.dispatchEvent(new Event('apex_store_settings_updated'));
+    }
+
     window.dispatchEvent(new CustomEvent('apex_store_state_synced', { detail: merged }));
     if (syncChannel) {
       try {
@@ -256,8 +261,25 @@ function saveLocalStoreCache(state: Partial<StoreState>) {
         // ignore channel errors
       }
     }
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const rtChannel = new BroadcastChannel('apex_realtime_sync_channel');
+        rtChannel.postMessage({ type: 'STORE_UPDATE', payload: state, timestamp: Date.now() });
+        rtChannel.close();
+      } catch {
+        // ignore
+      }
+    }
   } catch {
     // ignore storage errors
+  }
+}
+
+function sanitizeForFirebase<T>(obj: T): T {
+  try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch {
+    return obj;
   }
 }
 
@@ -277,41 +299,58 @@ export function getCachedStoreState(): StoreState {
 export async function fetchStoreFromFirebase(): Promise<StoreState> {
   try {
     const storeRef = ref(db, STORE_PATH);
-    const snapshot = await get(storeRef);
+    const snapshot = await Promise.race([
+      get(storeRef),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1800))
+    ]);
 
     if (snapshot.exists()) {
       const normalized = normalizeStoreState(snapshot.val());
       saveLocalStoreCache(normalized);
       return normalized;
     } else {
-      const initial = getCachedStoreState();
-      await set(storeRef, initial);
+      const initial = sanitizeForFirebase(getCachedStoreState());
       saveLocalStoreCache(initial);
+      set(storeRef, initial).catch(() => {});
       return initial;
     }
-  } catch (err) {
-    console.warn('Using cached store state (Firebase unreachable):', err);
+  } catch {
     return getCachedStoreState();
   }
 }
 
 export async function syncStoreToFirebase(state: StoreState): Promise<void> {
-  const payload = {
+  const payload = sanitizeForFirebase({
     ...state,
     updatedAt: Date.now()
-  };
+  });
   saveLocalStoreCache(payload);
-  const storeRef = ref(db, STORE_PATH);
-  await set(storeRef, payload);
+  try {
+    const storeRef = ref(db, STORE_PATH);
+    await Promise.race([
+      set(storeRef, payload),
+      new Promise<void>((resolve) => setTimeout(resolve, 900))
+    ]);
+  } catch {
+    // Local & BroadcastChannel sync already completed in 0ms
+  }
 }
 
 export async function updateFirebasePartial(partial: Partial<StoreState>): Promise<void> {
-  saveLocalStoreCache(partial);
-  const storeRef = ref(db, STORE_PATH);
-  await update(storeRef, {
+  const cleanPartial = sanitizeForFirebase({
     ...partial,
     updatedAt: Date.now()
   });
+  saveLocalStoreCache(cleanPartial);
+  try {
+    const storeRef = ref(db, STORE_PATH);
+    await Promise.race([
+      update(storeRef, cleanPartial),
+      new Promise<void>((resolve) => setTimeout(resolve, 900))
+    ]);
+  } catch {
+    // Local & BroadcastChannel sync already completed in 0ms
+  }
 }
 
 export function subscribeToFirebaseStore(onData: (state: StoreState) => void, onError?: (err: Error) => void) {

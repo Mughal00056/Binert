@@ -15,10 +15,48 @@ export const ReceiptModal: React.FC = () => {
 
   const isVerified =
     receiptOrder.status === 'verified' || receiptOrder.status === 'delivered';
+  const isDelivered = receiptOrder.status === 'delivered';
   const isPending =
     receiptOrder.status === 'pending' ||
     receiptOrder.status === 'processing' ||
     receiptOrder.status === 'otp_sent';
+
+  const deliv = receiptOrder.deliveryInfo || {};
+  const delivProductName =
+    deliv.productName ||
+    receiptOrder.productName ||
+    receiptOrder.items?.map((i) => i.name).join(', ');
+  const delivProductLink = deliv.productLink || receiptOrder.productLink || '';
+  const delivDownloadUrl = deliv.downloadUrl || receiptOrder.downloadUrl || '';
+  const delivDownloadFileName =
+    deliv.downloadFileName ||
+    receiptOrder.downloadFileName ||
+    `ApexStore_${String(receiptOrder.id).slice(-6)}_Package.html`;
+  const delivDetails = deliv.deliveryDetails || receiptOrder.deliveryDetails || '';
+  const delivLicenseKey = deliv.licenseKey || receiptOrder.licenseKey || '';
+
+  const handleDownloadProductFile = () => {
+    if (delivDownloadUrl && delivDownloadUrl.startsWith('data:')) {
+      const a = document.createElement('a');
+      a.href = delivDownloadUrl;
+      a.download = delivDownloadFileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('Product file download started!');
+      return;
+    }
+    if (delivDownloadUrl && /^https?:\/\//i.test(delivDownloadUrl)) {
+      window.open(delivDownloadUrl, '_blank', 'noopener,noreferrer');
+      showToast('Opening product download link...');
+      return;
+    }
+    if (delivProductLink && /^https?:\/\//i.test(delivProductLink)) {
+      window.open(delivProductLink, '_blank', 'noopener,noreferrer');
+      showToast('Opening product link...');
+      return;
+    }
+  };
 
   const dt = new Date(receiptOrder.createdAt || Date.now());
   const dateFormatted = dt.toLocaleString('en-PK', {
@@ -234,6 +272,34 @@ export const ReceiptModal: React.FC = () => {
               </div>
             </div>
 
+            {/* Delivered Product Details & Link */}
+            {isDelivered && (delivProductLink || delivDownloadUrl || delivLicenseKey || delivDetails) && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 space-y-2 text-left">
+                <div className="flex items-center gap-1.5 text-[10px] font-black text-emerald-700 uppercase tracking-wider">
+                  <i className="fa-solid fa-box-open" />
+                  <span>Delivered Product Package</span>
+                </div>
+                {delivProductName && (
+                  <div className="text-xs font-black text-slate-900">{delivProductName}</div>
+                )}
+                {delivLicenseKey && (
+                  <div className="bg-white border border-emerald-200 rounded-lg p-2 text-[11px] font-mono font-bold text-emerald-800 break-all">
+                    Key/Code: {delivLicenseKey}
+                  </div>
+                )}
+                {delivProductLink && (
+                  <div className="bg-white border border-emerald-200 rounded-lg p-2 text-[10px] font-mono text-purple-700 break-all">
+                    Link: {delivProductLink}
+                  </div>
+                )}
+                {delivDetails && (
+                  <div className="text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
+                    {delivDetails}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Footer */}
             <div className="text-center pt-2 border-t border-purple-100">
               <div className="text-sm font-black text-purple-700 mb-1">
@@ -256,7 +322,17 @@ export const ReceiptModal: React.FC = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2.5 mt-4">
+        <div className="flex flex-wrap gap-2.5 mt-4">
+          {isDelivered && (delivDownloadUrl || delivProductLink) && (
+            <button
+              type="button"
+              onClick={handleDownloadProductFile}
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/50 transition cursor-pointer active:scale-[0.98]"
+            >
+              <i className="fa-solid fa-cloud-arrow-down" />
+              <span>Download / Open Delivered Product</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleDownload}

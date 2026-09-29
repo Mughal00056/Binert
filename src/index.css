@@ -359,11 +359,36 @@ img {
 
 .admin-theme-cyber .admin-card,
 .admin-theme-cyber .bg-white,
+.admin-theme-light .bg-white,
+.admin-theme-obsidian .bg-white,
+.admin-theme-slate .bg-white,
 .admin-theme-cyber aside,
 .admin-theme-cyber header {
   background-color: var(--admin-surface) !important;
   border-color: var(--admin-border) !important;
   color: var(--admin-text) !important;
+}
+
+.admin-theme-cyber .bg-slate-50,
+.admin-theme-cyber .bg-slate-50\/50,
+.admin-theme-cyber .bg-slate-100,
+.admin-theme-cyber .bg-slate-200 {
+  background-color: #0d0d14 !important;
+  color: #f8fafc !important;
+}
+
+.admin-theme-cyber .hover\:bg-slate-50:hover,
+.admin-theme-cyber .hover\:bg-slate-50\/60:hover,
+.admin-theme-cyber .hover\:bg-slate-100:hover,
+.admin-theme-cyber .hover\:bg-slate-200:hover {
+  background-color: #1b162a !important;
+}
+
+.admin-theme-cyber .border-indigo-100,
+.admin-theme-cyber .border-indigo-200,
+.admin-theme-cyber .border-purple-100,
+.admin-theme-cyber .border-purple-200 {
+  border-color: rgba(168, 85, 247, 0.4) !important;
 }
 
 .admin-theme-cyber .admin-card:hover {

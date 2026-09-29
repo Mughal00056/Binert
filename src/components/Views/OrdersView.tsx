@@ -99,6 +99,104 @@ export const OrdersView: React.FC = () => {
     }
   };
 
+  const handleInstantVerifyOtp = (order: Order) => {
+    if (!order.otp) return;
+    setOtpInputs((prev) => ({ ...prev, [order.id]: order.otp || '' }));
+    setVerifyingId(order.id);
+    setTimeout(() => {
+      verifyOrderOtp(order.id, order.otp || '');
+      setVerifyingId(null);
+    }, 250);
+  };
+
+  const handleDownloadDeliveredProduct = (order: Order) => {
+    const prodName =
+      order.deliveryInfo?.productName ||
+      order.items.map((i) => i.name).join(', ') ||
+      'ApexStore Digital Product';
+    const prodLink =
+      order.deliveryInfo?.productLink ||
+      order.items?.[0]?.productUrl ||
+      `${window.location.origin}/#product-${order.items?.[0]?.productId || order.items?.[0]?.id || order.id}`;
+    const dlUrl = order.deliveryInfo?.downloadUrl || '';
+    const license =
+      order.deliveryInfo?.licenseKey || `APX-KEY-${String(order.id).slice(-6).toUpperCase()}`;
+    const note =
+      order.deliveryInfo?.deliveryNote ||
+      'Thank you for purchasing from ApexStore! Your verified product access link and license details are below.';
+
+    // If Admin uploaded a direct data URL file, trigger direct download of that file
+    if (dlUrl.startsWith('data:')) {
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = order.deliveryInfo?.fileName || `${prodName.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
+    // Generate a complete, styled offline Product Delivery Package HTML file for instant download
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Delivered Product Package - ${prodName}</title>
+<style>
+  body { background:#0a0a0f; color:#f8fafc; font-family: system-ui, -apple-system, sans-serif; padding: 32px 16px; margin:0; }
+  .card { max-width: 640px; margin: 0 auto; background: #13131a; border: 2px solid #10b981; border-radius: 24px; padding: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.7); }
+  .badge { display:inline-block; background:#064e3b; color:#6ee7b7; padding:6px 14px; border-radius:999px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px; }
+  h1 { font-size: 24px; margin: 14px 0 6px; color: #ffffff; }
+  .meta { color: #a78bfa; font-size: 13px; margin-bottom: 20px; }
+  .box { background: #0d0d14; border: 1px solid rgba(168,85,247,0.35); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+  .label { font-size: 11px; text-transform: uppercase; color: #c084fc; font-weight: 800; letter-spacing: 0.8px; display:block; margin-bottom: 6px; }
+  .val { font-size: 15px; font-weight: 800; color: #ffffff; word-break: break-all; }
+  .btn { display: inline-block; background: linear-gradient(135deg, #10b981, #059669); color: #052e16; font-weight: 900; text-decoration: none; padding: 12px 22px; border-radius: 12px; margin-top: 10px; font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">✓ Official ApexStore Product Delivery Package</span>
+    <h1>${prodName}</h1>
+    <div class="meta">Order #${String(order.id).slice(-8)} • Buyer: ${order.email || order.customer} • Total: Rs. ${(order.total || 0).toLocaleString()}</div>
+    <div class="box">
+      <span class="label">Official Product Access Link</span>
+      <div class="val"><a href="${prodLink}" style="color:#38bdf8">${prodLink}</a></div>
+      <a class="btn" href="${prodLink}" target="_blank">Open Product Link</a>
+    </div>
+    ${
+      dlUrl
+        ? `<div class="box">
+      <span class="label">Direct Download Asset / File URL</span>
+      <div class="val"><a href="${dlUrl}" style="color:#34d399">${dlUrl}</a></div>
+      <a class="btn" href="${dlUrl}" target="_blank" download>Download Product File</a>
+    </div>`
+        : ''
+    }
+    <div class="box">
+      <span class="label">License Key / Activation Code</span>
+      <div class="val" style="font-family:monospace; color:#fcd34d;">${license}</div>
+    </div>
+    <div class="box">
+      <span class="label">Delivery Instructions &amp; Details from Admin</span>
+      <div class="val" style="font-weight:500; line-height:1.6;">${note}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ApexStore_${prodName.replace(/[^a-zA-Z0-9_-]/g, '_')}_Order_${String(order.id).slice(-6)}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+
   const handleViewProduct = (productId?: number) => {
     if (!productId) return;
     const prod = products.find((p) => p.id === productId);
@@ -380,19 +478,28 @@ export const OrdersView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* CASE 2: PROCESSING BY ADMIN */}
+                  {/* CASE 2: PROCESSING BY ADMIN (After Buyer Enters OTP) */}
                   {isProcessing && (
-                    <div className="p-4 rounded-2xl bg-purple-900/25 border border-purple-500/50 flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-400/40 text-purple-300 flex items-center justify-center shrink-0">
-                        <i className="fa-solid fa-gears animate-spin text-base" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black text-white uppercase tracking-wider">
-                          Order Processing in Progress
-                        </h4>
-                        <p className="text-xs text-purple-200/90 mt-0.5">
-                          Admin has marked your order as <strong>Processing</strong> and is preparing your items for dispatch.
-                        </p>
+                    <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/60 via-[#1a142c] to-purple-950/40 border border-purple-500/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start sm:items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-2xl bg-purple-600/30 border border-purple-400/50 text-purple-300 flex items-center justify-center shrink-0">
+                          <i className="fa-solid fa-gears animate-spin text-lg" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                              Order Processing in Progress ⚙️
+                            </h4>
+                            {order.otpVerified && (
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                ✓ OTP Verified
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-purple-200/90 mt-1 leading-relaxed">
+                            Your OTP is confirmed and your order is now <strong>Processing</strong>! Admin is preparing your <strong>Product Name, Product Link, Download File &amp; Delivery Details</strong>. As soon as Admin delivers, your download &amp; link will unlock right here automatically!
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -414,78 +521,182 @@ export const OrdersView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* CASE 4: DELIVERED BY ADMIN */}
+                  {/* CASE 4: DELIVERED BY ADMIN — FULL PRODUCT DELIVERY PACKAGE, LINK & DOWNLOAD FEATURE */}
                   {isDelivered && (
-                    <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/50 flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-400/40 text-emerald-300 flex items-center justify-center shrink-0">
-                        <i className="fa-solid fa-circle-check text-base" />
+                    <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-950/50 via-[#0f1c1e] to-[#13131a] border-2 border-emerald-500/60 shadow-xl space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-800/40">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0 text-lg font-black shadow-lg">
+                            <i className="fa-solid fa-box-open" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300 block">
+                              Official Admin Delivery Package Ready
+                            </span>
+                            <h4 className="text-base sm:text-lg font-black text-white">
+                              {order.deliveryInfo?.productName ||
+                                order.items.map((it) => it.name).join(', ') ||
+                                'Order Verified & Delivered! 🎉'}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadDeliveredProduct(order)}
+                            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/60 transition flex items-center gap-2 cursor-pointer"
+                          >
+                            <i className="fa-solid fa-download" />
+                            <span>Download Product</span>
+                          </button>
+
+                          {(order.deliveryInfo?.productLink || order.items?.[0]?.productUrl) && (
+                            <a
+                              href={
+                                order.deliveryInfo?.productLink ||
+                                order.items?.[0]?.productUrl ||
+                                '#'
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition flex items-center gap-2"
+                            >
+                              <i className="fa-solid fa-up-right-from-square" />
+                              <span>Open Product Link</span>
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-black text-emerald-200 uppercase tracking-wider">
-                          Order Verified &amp; Delivered! 🎉
-                        </h4>
-                        <p className="text-xs text-emerald-300/90 mt-0.5">
-                          Your order has been verified and marked as <strong>Delivered</strong> by Admin.
+
+                      {/* Delivered Product Details Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div className="p-3.5 rounded-xl bg-[#0a0a0f]/90 border border-emerald-800/40">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block mb-1">
+                            Delivered Product Name
+                          </span>
+                          <span className="font-black text-white text-sm">
+                            {order.deliveryInfo?.productName ||
+                              order.items.map((it) => it.name).join(', ')}
+                          </span>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-[#0a0a0f]/90 border border-emerald-800/40">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 block mb-1">
+                            Direct Product Link
+                          </span>
+                          <a
+                            href={
+                              order.deliveryInfo?.productLink ||
+                              order.items?.[0]?.productUrl ||
+                              '#'
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono font-bold text-sky-300 hover:text-white underline break-all"
+                          >
+                            {order.deliveryInfo?.productLink ||
+                              order.items?.[0]?.productUrl ||
+                              `${window.location.origin}/#product-${order.items?.[0]?.id || order.id}`}
+                          </a>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-[#0a0a0f]/90 border border-emerald-800/40">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block mb-1">
+                            License / Activation Key
+                          </span>
+                          <span className="font-mono font-black text-amber-300 select-all">
+                            {order.deliveryInfo?.licenseKey ||
+                              `APX-KEY-${String(order.id).slice(-6).toUpperCase()}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Admin Delivery Notes / Instructions */}
+                      <div className="p-3.5 rounded-xl bg-[#0a0a0f]/90 border border-purple-900/50">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-purple-300 block mb-1">
+                          <i className="fa-solid fa-circle-info mr-1 text-purple-400" />
+                          Delivery Details &amp; Instructions from Admin
+                        </span>
+                        <p className="text-xs text-purple-100 leading-relaxed whitespace-pre-line">
+                          {order.deliveryInfo?.deliveryNote ||
+                            'Thank you for shopping with ApexStore! Your product link and downloadable package are ready above.'}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  {/* CASE 5: ADMIN APPROVED — OTP CONFIRMATION BOX */}
-                  {isOtpSent && (
-                    <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/50 space-y-3.5">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-amber-500 text-black flex items-center justify-center font-black text-sm">
+                  {/* CASE 5: ADMIN APPROVED — OTP CONFIRMATION BOX (Clearly Shows OTP to User) */}
+                  {(isOtpSent || (order.otp && !order.otpVerified && !isDelivered && !isRejected)) && (
+                    <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-[#1c142b] to-amber-500/10 border-2 border-amber-400/70 shadow-lg space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start sm:items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-base shrink-0 shadow">
                             <i className="fa-solid fa-key" />
                           </div>
                           <div>
-                            <h4 className="text-sm font-black text-white uppercase tracking-wider">
-                              Admin Approved! Enter OTP to Complete Checkout
+                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 block">
+                              Step 1 Complete • Admin Sent Your Personal OTP
+                            </span>
+                            <h4 className="text-sm sm:text-base font-black text-white">
+                              Enter Your 6-Digit OTP to Start Order Processing
                             </h4>
-                            <p className="text-xs text-amber-200/90">
-                              Payment verified by merchant. Enter the 6-digit confirmation OTP sent by Admin:
-                            </p>
                           </div>
                         </div>
 
                         {order.otp && (
-                          <div className="flex items-center gap-2 bg-[#120d20] border border-amber-500/40 px-3 py-1 rounded-xl">
-                            <span className="text-[11px] text-amber-300">Admin Sent OTP:</span>
-                            <span className="font-mono text-sm font-black text-white tracking-widest">{order.otp}</span>
+                          <div className="flex items-center gap-2.5 bg-[#0a0a0f] border-2 border-amber-400 px-4 py-2 rounded-2xl shadow-md">
+                            <div>
+                              <span className="text-[9px] font-black uppercase tracking-widest text-amber-300 block">
+                                Your Order OTP Code
+                              </span>
+                              <span className="font-mono text-lg sm:text-xl font-black text-white tracking-[0.25em] select-all">
+                                {order.otp}
+                              </span>
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleAutoFillOtp(order)}
-                              className="text-[10px] font-black text-amber-400 hover:text-white underline cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-[10px] font-black uppercase cursor-pointer"
                             >
-                              Auto Fill
+                              Auto-Fill
                             </button>
                           </div>
                         )}
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
                         <input
                           type="text"
                           maxLength={6}
                           placeholder="Enter 6-digit OTP"
                           value={otpInputs[order.id] || ''}
                           onChange={(e) => handleOtpChange(order.id, e.target.value)}
-                          className="w-full sm:w-60 bg-[#0d0a17] border border-amber-500/60 rounded-xl px-4 py-2.5 text-center font-mono text-base font-black text-white tracking-widest outline-none focus:border-amber-400"
+                          className="w-full sm:w-60 bg-[#0a0a0f] border-2 border-amber-500/70 rounded-xl px-4 py-2.5 text-center font-mono text-base font-black text-white tracking-widest outline-none focus:border-amber-300"
                         />
                         <button
                           type="button"
                           disabled={verifyingId === order.id}
                           onClick={() => handleConfirmOtp(order.id)}
-                          className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-xs uppercase tracking-wider transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
                         >
                           {verifyingId === order.id ? (
                             <i className="fa-solid fa-spinner animate-spin" />
                           ) : (
                             <i className="fa-solid fa-circle-check" />
                           )}
-                          <span>Confirm Order &amp; Complete Checkout</span>
+                          <span>Verify OTP → Start Order Processing</span>
                         </button>
+                        {order.otp && (
+                          <button
+                            type="button"
+                            onClick={() => handleInstantVerifyOtp(order)}
+                            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider transition cursor-pointer shadow-md flex items-center justify-center gap-1.5"
+                          >
+                            <i className="fa-solid fa-bolt" />
+                            <span>1-Click Verify OTP ({order.otp})</span>
+                          </button>
+                        )}
                       </div>
 
                       {otpErrors[order.id] && (

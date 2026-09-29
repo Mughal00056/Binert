@@ -332,9 +332,16 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                             </button>
                           </div>
                           {order.otp ? (
-                            <span className="text-[10px] font-mono font-black text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-md w-fit">
-                              Sent OTP: <strong className="text-white select-all">{order.otp}</strong>
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-mono font-black text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-md w-fit">
+                                Sent OTP: <strong className="text-white select-all">{order.otp}</strong>
+                              </span>
+                              {order.otpVerified && (
+                                <span className="text-[9px] font-black text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 px-2 py-0.5 rounded-md w-fit">
+                                  ✓ OTP Verified → Processing
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-[10px] text-purple-400/70">
                               Sends only to this buyer
@@ -362,10 +369,10 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                             type="button"
                             onClick={() => onViewOrder(order)}
                             className="px-2.5 py-1.5 text-xs font-bold text-purple-200 bg-[#1b152b] hover:bg-purple-800 border border-purple-700/50 rounded-lg transition cursor-pointer flex items-center gap-1"
-                            title="View Order Details"
+                            title="Open Delivery Console & Send Product Link / Download"
                           >
-                            <i className="fa-solid fa-eye text-xs"></i>
-                            <span>View</span>
+                            <i className="fa-solid fa-box-open text-emerald-400 text-xs"></i>
+                            <span>Deliver / Link</span>
                           </button>
 
                           {status !== 'processing' && (
@@ -385,9 +392,9 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                               type="button"
                               onClick={() => onUpdateStatus(orderIdStr, 'delivered')}
                               className="order-action-btn verify cursor-pointer"
-                              title="Verify & Deliver Order"
+                              title="Instant Deliver with Product Link & Download Package"
                             >
-                              <i className="fa-solid fa-check"></i> Deliver
+                              <i className="fa-solid fa-check"></i> Quick Deliver
                             </button>
                           )}
 

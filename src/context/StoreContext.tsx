@@ -285,7 +285,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(INITIAL_PROMO_CODES);
-  const [storeInfo, setStoreInfo] = useState<StoreInfo>(INITIAL_STORE_INFO);
+  const [storeInfo, setStoreInfo] = useState<StoreInfo>(() => {
+    const defaults: StoreInfo = {
+      name: 'ApexStore',
+      ...INITIAL_STORE_INFO,
+      ownerPhoto: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
+      ownerRole: 'Founder & Chief Executive Officer',
+      ownerBio: 'Curating flagship audio, next-gen wearables, and verified digital & physical tech gear across Pakistan with 100% authentic merchant guarantee.',
+      instagram: 'https://instagram.com/apexstore.pk',
+      tiktok: 'https://tiktok.com/@apexstore.pk',
+      youtube: 'https://youtube.com/@apexstore',
+      facebook: 'https://facebook.com/apexstore.pk',
+      telegram: 'https://t.me/apexstore',
+      twitter: 'https://x.com/apexstore',
+      showOwnerPhoto: true,
+      showOwnerName: true,
+      showEmail: true,
+      showPhone: true,
+      showCity: true,
+      showWhatsapp: true,
+      showInstagram: true,
+      showTiktok: true,
+      showYoutube: true,
+      showFacebook: true,
+      showTelegram: true,
+      showTwitter: true
+    };
+    try {
+      const saved = localStorage.getItem('apex_store_settings');
+      if (saved) {
+        return { ...defaults, ...JSON.parse(saved) };
+      }
+    } catch {}
+    return defaults;
+  });
   const [announcement, setAnnouncement] = useState<AnnouncementSettings>(INITIAL_ANNOUNCEMENT);
   const [bannerImage, setBannerImage] = useState<string>('https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1600&auto=format&fit=crop&q=80');
   const [galleryImages, setGalleryImages] = useState<string[]>(INITIAL_GALLERY_IMAGES);
@@ -430,22 +463,47 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const parsed: Order[] = JSON.parse(saved);
           const filtered = parsed.filter((o) => o && !deletedOrders.has(String(o.id)));
           setOrders(filtered);
-          const validIds = new Set(filtered.map((o) => String(o.id)));
+          const validMap = new Map(filtered.map((o) => [String(o.id), o]));
           setCurrentOrder((curr) => {
-            if (curr && !validIds.has(String(curr.id))) {
+            if (!curr) return null;
+            const latest = validMap.get(String(curr.id));
+            if (!latest) {
               setTimerModalOpen(false);
               return null;
             }
-            return curr;
+            return latest;
           });
-          setReceiptOrder((curr) => (curr && !validIds.has(String(curr.id)) ? null : curr));
+          setReceiptOrder((curr) => {
+            if (!curr) return null;
+            return validMap.get(String(curr.id)) || null;
+          });
           setActiveTimerOrderId((currId) => {
-            if (currId !== null && !validIds.has(String(currId))) {
+            if (currId !== null && !validMap.has(String(currId))) {
               setTimerModalOpen(false);
               return null;
             }
             return currId;
           });
+        }
+      } catch {}
+    };
+    const handleNotificationsSync = () => {
+      try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_NOTIFS);
+        if (saved) {
+          const parsed: StoreNotification[] = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setNotifications(parsed);
+          }
+        }
+      } catch {}
+    };
+    const handleStoreSettingsSync = () => {
+      try {
+        const saved = localStorage.getItem('apex_store_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setStoreInfo((prev) => ({ ...prev, ...parsed }));
         }
       } catch {}
     };
@@ -498,6 +556,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       handleOrdersSync();
       handleProductsSync();
       handleUsersSync();
+      handleNotificationsSync();
+      handleStoreSettingsSync();
     };
 
     window.addEventListener('storage', handleAllStorage);
@@ -507,6 +567,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.addEventListener('apex_orders_updated', handleOrdersSync);
     window.addEventListener('apex_products_updated', handleProductsSync);
     window.addEventListener('apex_users_updated', handleUsersSync);
+    window.addEventListener('apex_notifications_updated', handleNotificationsSync);
+    window.addEventListener('apex_store_settings_updated', handleStoreSettingsSync);
     return () => {
       window.removeEventListener('storage', handleAllStorage);
       window.removeEventListener('apex_features_updated', handleStorageChange);
@@ -515,6 +577,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       window.removeEventListener('apex_orders_updated', handleOrdersSync);
       window.removeEventListener('apex_products_updated', handleProductsSync);
       window.removeEventListener('apex_users_updated', handleUsersSync);
+      window.removeEventListener('apex_notifications_updated', handleNotificationsSync);
+      window.removeEventListener('apex_store_settings_updated', handleStoreSettingsSync);
     };
   }, []);
 
@@ -1031,6 +1095,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             otp: ro.otp || existing?.otp,
             otpSentAt: ro.otpSentAt || existing?.otpSentAt,
             otpVerified: ro.otpVerified ?? existing?.otpVerified,
+            otpVerifiedAt: ro.otpVerifiedAt || existing?.otpVerifiedAt,
+            deliveryInfo: ro.deliveryInfo || existing?.deliveryInfo,
             approvalSecondsLeft: ro.approvalSecondsLeft ?? existing?.approvalSecondsLeft ?? 180,
             approvalExpiresAt: ro.approvalExpiresAt ?? existing?.approvalExpiresAt,
             timeline: ro.timeline || existing?.timeline || []
@@ -1043,17 +1109,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(sorted));
         } catch {}
 
-        const validIds = new Set(sorted.map((o) => String(o.id)));
+        const validMap = new Map(sorted.map((o) => [String(o.id), o]));
         setCurrentOrder((curr) => {
-          if (curr && !validIds.has(String(curr.id))) {
+          if (!curr) return null;
+          const latest = validMap.get(String(curr.id));
+          if (!latest) {
             setTimerModalOpen(false);
             return null;
           }
-          return curr;
+          return latest;
         });
-        setReceiptOrder((curr) => (curr && !validIds.has(String(curr.id)) ? null : curr));
+        setReceiptOrder((curr) => {
+          if (!curr) return null;
+          return validMap.get(String(curr.id)) || null;
+        });
         setActiveTimerOrderId((currId) => {
-          if (currId !== null && !validIds.has(String(currId))) {
+          if (currId !== null && !validMap.has(String(currId))) {
             setTimerModalOpen(false);
             return null;
           }
@@ -1064,14 +1135,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
 
       if (data.storeSettings) {
-        setStoreInfo((prev) => ({
-          owner: data.storeSettings?.owner || prev.owner,
-          city: data.storeSettings?.city || prev.city,
-          phone: data.storeSettings?.phone || prev.phone,
-          email: data.storeSettings?.email || prev.email,
-          whatsapp: data.storeSettings?.whatsapp || prev.whatsapp,
-          paymentNumber: data.paymentMethods?.easypaisa?.number || prev.paymentNumber
-        }));
+        setStoreInfo((prev) => {
+          const nextInfo: StoreInfo = {
+            ...prev,
+            ...data.storeSettings,
+            name: data.storeSettings?.name || prev.name || 'ApexStore',
+            owner: data.storeSettings?.owner || prev.owner,
+            city: data.storeSettings?.city || prev.city,
+            phone: data.storeSettings?.phone || prev.phone,
+            email: data.storeSettings?.email || prev.email,
+            whatsapp: data.storeSettings?.whatsapp || prev.whatsapp,
+            paymentNumber: data.paymentMethods?.easypaisa?.number || prev.paymentNumber
+          };
+          try {
+            localStorage.setItem('apex_store_settings', JSON.stringify(nextInfo));
+          } catch {}
+          return nextInfo;
+        });
       }
 
       if (data.announcementSettings) {
@@ -1136,7 +1216,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             time: n.time,
             active: n.active !== false,
             targetEmail: n.targetEmail,
-            orderId: n.orderId
+            orderId: n.orderId,
+            otp: n.otp,
+            deliveryInfo: n.deliveryInfo
           }))
         );
       }
@@ -1359,7 +1441,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     type: 'info' | 'promo' | 'order' | 'alert' = 'order',
     icon: string = 'fa-bell',
     targetEmail?: string,
-    orderId?: string | number
+    orderId?: string | number,
+    otp?: string
   ) => {
     const newNotif: StoreNotification = {
       id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -1369,8 +1452,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       desc,
       time: Date.now(),
       active: true,
-      targetEmail,
-      orderId
+      targetEmail: targetEmail ? targetEmail.trim().toLowerCase() : undefined,
+      orderId,
+      otp
     };
     setNotifications((prev) => {
       const updated = [newNotif, ...prev];
@@ -1651,13 +1735,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       'order',
       'fa-key',
       finalTargetEmail,
-      orderId
+      orderId,
+      generatedOtp
     );
   };
 
-  // User action: Verify OTP to finalize order checkout
+  // User action: Verify OTP -> Order transitions to PROCESSING so Admin can deliver Product Link, Download & Details
   const verifyOrderOtp = (orderId: number, enteredOtp: string): { success: boolean; error?: string } => {
-    const target = orders.find((o) => o.id === orderId);
+    const target = orders.find((o) => String(o.id) === String(orderId));
     if (!target) {
       return { success: false, error: 'Order not found.' };
     }
@@ -1668,28 +1753,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: 'Incorrect OTP. Please enter the exact 6-digit OTP sent by Admin.' };
     }
 
-    // Success! Confetti & Verified Status
     confetti({
-      particleCount: 120,
-      spread: 90,
+      particleCount: 100,
+      spread: 80,
       origin: { y: 0.6 }
     });
 
+    const verifiedTimeIso = new Date().toISOString();
     const updatedOrders = orders.map((o) => {
-      if (o.id === orderId) {
+      if (String(o.id) === String(orderId)) {
         const timeline = o.timeline || [];
         return {
           ...o,
-          status: 'delivered' as OrderStatus,
+          status: 'processing' as OrderStatus,
           otpVerified: true,
-          otpVerifiedAt: new Date().toISOString(),
+          otpVerifiedAt: verifiedTimeIso,
           timeline: [
             ...timeline,
             {
-              status: 'delivered',
-              title: 'OTP Verified & Order Delivered',
+              status: 'processing',
+              title: 'OTP Verified by Buyer — Order Processing',
               time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              note: 'Customer verified OTP successfully. Order delivered to customer.',
+              note: 'Customer verified the 6-digit OTP. Order is now processing for final product delivery & download link from Admin.',
               completed: true
             }
           ]
@@ -1699,21 +1784,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     setOrders(updatedOrders);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_ORDERS, JSON.stringify(updatedOrders));
+      window.dispatchEvent(new Event('apex_orders_updated'));
+    } catch {}
     updateFirebasePartial({
       orders: updatedOrders.map((o) => ({ ...o, id: String(o.id) }))
     }).catch(() => {});
 
-    if (currentOrder && currentOrder.id === orderId) {
-      const updated: Order = { ...currentOrder, status: 'delivered', otpVerified: true };
+    if (currentOrder && String(currentOrder.id) === String(orderId)) {
+      const updated: Order = {
+        ...currentOrder,
+        status: 'processing',
+        otpVerified: true,
+        otpVerifiedAt: verifiedTimeIso
+      };
       setCurrentOrder(updated);
-      setOrderStatus('delivered');
+      setOrderStatus('processing');
     }
 
     addNotification(
-      `Order #${String(orderId).slice(-6)} Confirmed & Delivered! 🎉`,
-      'OTP verified successfully! Your order has been completed and delivered.',
+      `OTP Verified — Order #${String(orderId).slice(-6)} is Now Processing! ⚙️`,
+      'Your 6-digit OTP is confirmed! Admin is now preparing your product delivery package, product link & download access.',
       'order',
-      'fa-circle-check'
+      'fa-gears',
+      target.email,
+      orderId
     );
 
     return { success: true };
@@ -1769,10 +1865,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setOrderStatus(status);
     }
 
+    const foundOrder = orders.find((o) => String(o.id) === String(orderId));
+    const buyerTargetEmail = foundOrder?.email;
+
     if (status === 'delivered') {
-      addNotification(`Order #${String(orderId).slice(-6)} Delivered! 🎉`, 'Your order has been delivered successfully.', 'order', 'fa-circle-check');
+      addNotification(
+        `Order #${String(orderId).slice(-6)} Delivered! 🎉`,
+        'Your order has been delivered! Open My Orders to view your Product Link, Download & Delivery Package.',
+        'order',
+        'fa-circle-check',
+        buyerTargetEmail,
+        orderId
+      );
     } else if (status === 'rejected') {
-      addNotification(`Order #${String(orderId).slice(-6)} Declined`, trackingNum || 'Payment verification failed.', 'alert', 'fa-triangle-exclamation');
+      addNotification(
+        `Order #${String(orderId).slice(-6)} Declined`,
+        trackingNum || 'Payment verification failed.',
+        'alert',
+        'fa-triangle-exclamation',
+        buyerTargetEmail,
+        orderId
+      );
     }
   };
 
@@ -1840,12 +1953,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStoreInfo(info);
     updateFirebasePartial({
       storeSettings: {
-        name: 'ApexStore',
-        owner: info.owner,
-        email: info.email,
-        phone: info.phone,
-        city: info.city,
-        whatsapp: info.whatsapp
+        ...info,
+        name: info.name || 'ApexStore'
       }
     }).catch(() => {});
     showToast('Updated store settings');

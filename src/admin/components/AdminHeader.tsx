@@ -11,6 +11,7 @@ interface AdminHeaderProps {
   onSelectTheme?: (theme: AdminTheme) => void;
   featureToggles?: FeatureToggles;
   onUpdateFeatureToggle?: (key: keyof FeatureToggles, enabled: boolean) => void;
+  onUpdateToggle?: (key: keyof FeatureToggles, enabled: boolean) => void;
   onOpenFeaturesTab?: () => void;
   onForceSync: () => void;
   onToggleSidebar: () => void;
@@ -21,19 +22,29 @@ interface AdminHeaderProps {
 const LOGO_URL = 'https://i.supaimg.com/0ffab3ca-b15e-48fd-a213-7db2aa7158cc/bb9ac2b2-70ac-461a-b3d7-1d8aabf1a38c.jpg';
 
 const QUICK_FEATURES: Array<{ key: keyof FeatureToggles; label: string; icon: string }> = [
-  { key: 'sideMenu', label: 'Side Menu Drawer', icon: 'fa-bars' },
+  { key: 'sideMenu', label: 'Side Menu Drawer (Master)', icon: 'fa-bars' },
+  { key: 'menuHome', label: 'Menu: Home Link', icon: 'fa-house' },
+  { key: 'menuOrders', label: 'Menu: My Orders & Tracking', icon: 'fa-box-open' },
+  { key: 'menuContact', label: 'Menu: Contact Us', icon: 'fa-envelope' },
+  { key: 'menuAbout', label: 'Menu: About Owner', icon: 'fa-user-tie' },
+  { key: 'aiAssistant', label: 'Menu & Store: AI Assistant', icon: 'fa-wand-magic-sparkles' },
+  { key: 'notifications', label: 'Menu & Header: Notifications', icon: 'fa-bell' },
+  { key: 'promoCodes', label: 'Menu & Store: Promo Codes', icon: 'fa-ticket' },
+  { key: 'whatsAppFloat', label: 'Menu & Float: WhatsApp', icon: 'fa-whatsapp' },
   { key: 'splash', label: '3D Splash Screen', icon: 'fa-bolt' },
-  { key: 'announcement', label: 'Top Announcement', icon: 'fa-bullhorn' },
+  { key: 'announcement', label: 'Top Announcement Bar', icon: 'fa-bullhorn' },
   { key: 'banner', label: 'Hero Banner', icon: 'fa-image' },
   { key: 'launchCountdown', label: 'Launch Countdown', icon: 'fa-stopwatch' },
   { key: 'gallery', label: 'Gallery Showcase', icon: 'fa-images' },
   { key: 'categoryChips', label: 'Category Filter Chips', icon: 'fa-tags' },
   { key: 'dynamicSections', label: 'Product Sections', icon: 'fa-layer-group' },
-  { key: 'searchPanel', label: 'Global Search', icon: 'fa-magnifying-glass' },
-  { key: 'notifications', label: 'Notifications Bell', icon: 'fa-bell' },
-  { key: 'promoCodes', label: 'Promo Codes', icon: 'fa-ticket' },
-  { key: 'aiAssistant', label: 'AI Assistant', icon: 'fa-wand-magic-sparkles' },
-  { key: 'whatsAppFloat', label: 'WhatsApp Button', icon: 'fa-whatsapp' }
+  { key: 'searchPanel', label: 'Global Search Panel', icon: 'fa-magnifying-glass' },
+  { key: 'floatingCart', label: 'Floating Cart Pill', icon: 'fa-cart-shopping' },
+  { key: 'flyingParticles', label: 'Flying Cart Animation', icon: 'fa-sparkles' },
+  { key: 'quickView', label: 'Product Quick View', icon: 'fa-eye' },
+  { key: 'reviews', label: 'Customer Reviews', icon: 'fa-star' },
+  { key: 'receiptDownload', label: 'Receipt Slip Download', icon: 'fa-file-arrow-down' },
+  { key: 'soundEffects', label: 'UI Sound Effects', icon: 'fa-volume-high' }
 ];
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
@@ -42,12 +53,14 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   syncStatus,
   featureToggles,
   onUpdateFeatureToggle,
+  onUpdateToggle,
   onOpenFeaturesTab,
   onForceSync,
   onToggleSidebar,
   onSwitchToStorefront,
   onShowToast
 }) => {
+  const handleToggleFeature = onUpdateFeatureToggle || onUpdateToggle;
   const [featureMenuOpen, setFeatureMenuOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
 
@@ -134,7 +147,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           {/* Right: Quick Feature ON/OFF Menu, URLs, Sync Status & Storefront Switch */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Quick Feature ON/OFF Toggle Menu */}
-            {featureToggles && onUpdateFeatureToggle && (
+            {featureToggles && handleToggleFeature && (
               <div className="relative">
                 <button
                   type="button"
@@ -183,7 +196,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                           return (
                             <div
                               key={item.key}
-                              onClick={() => onUpdateFeatureToggle(item.key, !isOn)}
+                              onClick={() => handleToggleFeature(item.key, !isOn)}
                               className="flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-purple-950/50 transition cursor-pointer select-none"
                             >
                               <div className="flex items-center gap-2.5 min-w-0">

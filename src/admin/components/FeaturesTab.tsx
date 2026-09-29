@@ -21,11 +21,43 @@ const FEATURE_LIST: FeatureItemConfig[] = [
   // Storefront UI & Navigation Menu
   {
     key: 'sideMenu',
-    title: 'Navigation Side Menu Drawer',
+    title: 'Navigation Side Menu Drawer (Master)',
     category: 'storefront',
     description: 'Controls the hamburger navigation menu button and slide-out side drawer in the storefront.',
     icon: 'fa-bars',
-    badge: 'Menu'
+    badge: 'Menu Master'
+  },
+  {
+    key: 'menuHome',
+    title: 'Side Menu: Home Link',
+    category: 'storefront',
+    description: 'Shows or hides the Home navigation link inside the Storefront Side Menu drawer.',
+    icon: 'fa-house',
+    badge: 'Menu Item'
+  },
+  {
+    key: 'menuOrders',
+    title: 'Side Menu: My Orders & Tracking',
+    category: 'storefront',
+    description: 'Shows or hides the My Orders & Tracking link inside the Storefront Side Menu drawer.',
+    icon: 'fa-box-open',
+    badge: 'Menu Item'
+  },
+  {
+    key: 'menuContact',
+    title: 'Side Menu: Contact Us Link',
+    category: 'storefront',
+    description: 'Shows or hides the Contact Us link inside the Storefront Side Menu drawer.',
+    icon: 'fa-envelope',
+    badge: 'Menu Item'
+  },
+  {
+    key: 'menuAbout',
+    title: 'Side Menu: About Owner Link',
+    category: 'storefront',
+    description: 'Shows or hides the About Owner link inside the Storefront Side Menu drawer.',
+    icon: 'fa-user-tie',
+    badge: 'Menu Item'
   },
   {
     key: 'splash',

@@ -38,11 +38,42 @@ export interface SectionConfig {
 export interface StoreInfo {
   name?: string;
   owner: string;
+  ownerPhoto?: string;
+  ownerRole?: string;
+  ownerBio?: string;
   city: string;
   phone: string;
   email: string;
   whatsapp: string;
+  instagram?: string;
+  tiktok?: string;
+  youtube?: string;
+  facebook?: string;
+  telegram?: string;
+  twitter?: string;
+  showOwnerPhoto?: boolean;
+  showOwnerName?: boolean;
+  showEmail?: boolean;
+  showPhone?: boolean;
+  showCity?: boolean;
+  showWhatsapp?: boolean;
+  showInstagram?: boolean;
+  showTiktok?: boolean;
+  showYoutube?: boolean;
+  showFacebook?: boolean;
+  showTelegram?: boolean;
+  showTwitter?: boolean;
   paymentNumber?: string;
+}
+
+export interface OrderDeliveryInfo {
+  productName?: string;
+  productLink?: string;
+  downloadUrl?: string;
+  fileName?: string;
+  licenseKey?: string;
+  deliveryNote?: string;
+  deliveredAt?: string;
 }
 
 export interface AnnouncementSettings {
@@ -71,6 +102,8 @@ export interface StoreNotification {
   active: boolean;
   targetEmail?: string;
   orderId?: string | number;
+  otp?: string;
+  deliveryInfo?: OrderDeliveryInfo;
 }
 
 export interface CustomPaymentMethod {
@@ -141,6 +174,7 @@ export interface Order {
   approvalExpiresAt?: number;
   trackingNumber?: string;
   shippingAddress?: string;
+  deliveryInfo?: OrderDeliveryInfo;
   timeline?: OrderTimelineItem[];
 }
 
@@ -186,6 +220,10 @@ export interface LaunchConfig {
 
 export interface FeatureToggles {
   sideMenu: boolean;
+  menuHome?: boolean;
+  menuOrders?: boolean;
+  menuContact?: boolean;
+  menuAbout?: boolean;
   splash: boolean;
   announcement: boolean;
   banner: boolean;
@@ -208,6 +246,10 @@ export interface FeatureToggles {
 
 export const DEFAULT_FEATURE_TOGGLES: FeatureToggles = {
   sideMenu: true,
+  menuHome: true,
+  menuOrders: true,
+  menuContact: true,
+  menuAbout: true,
   splash: true,
   announcement: true,
   banner: true,
