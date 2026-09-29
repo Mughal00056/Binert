@@ -53,6 +53,10 @@ export interface RegisteredUserRecord {
   role?: 'user' | 'admin';
   createdAt: string;
   lastLoginAt?: string;
+  verified?: boolean;
+  verificationOtp?: string;
+  verificationOtpSentAt?: string;
+  verifiedAt?: string;
 }
 
 export interface OrderItem {
@@ -90,6 +94,13 @@ export interface Order {
   approvalSecondsLeft?: number;
   approvalExpiresAt?: number;
   deliveryInfo?: OrderDeliveryInfo;
+  productName?: string;
+  productLink?: string;
+  downloadUrl?: string;
+  downloadFileName?: string;
+  deliveryDetails?: string;
+  licenseKey?: string;
+  deliveredAt?: string;
   timeline?: Array<{
     status: OrderStatus | string;
     title: string;

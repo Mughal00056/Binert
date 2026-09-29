@@ -14,6 +14,8 @@ interface OrdersTabProps {
   onAddUser?: (userData: { name: string; email: string; password: string }) => void;
   onDeleteUser?: (emailOrId: string) => void;
   onClearAllUsers?: () => void;
+  onSendUserOtp?: (email: string, customOtp?: string) => void;
+  onToggleUserVerified?: (email: string, verified: boolean) => void;
 }
 
 export const OrdersTab: React.FC<OrdersTabProps> = ({
@@ -27,10 +29,13 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   onClearAllOrders,
   onAddUser,
   onDeleteUser,
-  onClearAllUsers
+  onClearAllUsers,
+  onSendUserOtp,
+  onToggleUserVerified
 }) => {
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [customOtps, setCustomOtps] = useState<Record<string, string>>({});
+  const [userCustomOtps, setUserCustomOtps] = useState<Record<string, string>>({});
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
@@ -508,7 +513,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
             <thead className="bg-[#0d0d14] border-b border-purple-900/40">
               <tr>
                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-purple-300">
-                  User Name
+                  User Name &amp; Status
                 </th>
                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-purple-300">
                   Email Address
@@ -517,7 +522,10 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   Password
                 </th>
                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-purple-300">
-                  Orders Placed
+                  Account OTP Verification
+                </th>
+                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-purple-300">
+                  Orders
                 </th>
                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-purple-300 text-right">
                   Actions
@@ -527,7 +535,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
             <tbody className="divide-y divide-purple-900/30">
               {combinedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-purple-300/60 text-xs">
+                  <td colSpan={6} className="px-4 py-8 text-center text-purple-300/60 text-xs">
                     No user credentials recorded yet.
                   </td>
                 </tr>
@@ -536,10 +544,24 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   const userOrderCount = orders.filter(
                     (o) => (o.email || '').trim().toLowerCase() === (u.email || '').trim().toLowerCase()
                   ).length;
+                  const isUserVerified = Boolean(u.verified || u.role === 'admin');
                   return (
                     <tr key={u.id || u.email} className="hover:bg-purple-950/20 transition">
-                      <td className="px-4 py-3 font-bold text-white text-xs">
-                        {u.name || 'User'}
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-white text-xs">{u.name || 'User'}</div>
+                        <div className="mt-1">
+                          {isUserVerified ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-black uppercase">
+                              <i className="fa-solid fa-circle-check text-[8px]" />
+                              Verified Account
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black uppercase animate-pulse">
+                              <i className="fa-solid fa-hourglass-half text-[8px]" />
+                              Unverified (Locked)
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-purple-200 select-all">
                         {u.email}
@@ -548,6 +570,59 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                         <span className="font-mono text-xs font-black text-amber-300 bg-amber-950/50 border border-amber-500/40 px-2.5 py-1 rounded-lg select-all">
                           {u.password || '—'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1.5">
+                          {u.verificationOtp && (
+                            <span className="text-[10px] font-mono font-black text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-md w-fit">
+                              Sent OTP: <strong className="text-white select-all">{u.verificationOtp}</strong>
+                            </span>
+                          )}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {onSendUserOtp && (
+                              <>
+                                <input
+                                  type="text"
+                                  maxLength={6}
+                                  placeholder="6-digit / Auto"
+                                  value={userCustomOtps[u.email] || ''}
+                                  onChange={(e) =>
+                                    setUserCustomOtps((prev) => ({
+                                      ...prev,
+                                      [u.email]: e.target.value.replace(/\D/g, '')
+                                    }))
+                                  }
+                                  className="w-24 px-2 py-1 rounded-lg bg-[#0d0d14] border border-amber-500/40 text-[11px] font-mono text-white placeholder-purple-400/50 outline-none focus:border-amber-400"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const custom = (userCustomOtps[u.email] || '').trim();
+                                    onSendUserOtp(u.email, custom.length >= 4 ? custom : undefined);
+                                    setUserCustomOtps((prev) => ({ ...prev, [u.email]: '' }));
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-black text-[10px] uppercase tracking-wider transition cursor-pointer flex items-center gap-1 shadow-sm"
+                                >
+                                  <i className="fa-solid fa-key text-[9px]" />
+                                  <span>{u.verificationOtp ? 'Resend OTP' : 'Send OTP'}</span>
+                                </button>
+                              </>
+                            )}
+                            {onToggleUserVerified && u.role !== 'admin' && (
+                              <button
+                                type="button"
+                                onClick={() => onToggleUserVerified(u.email, !isUserVerified)}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer border ${
+                                  isUserVerified
+                                    ? 'bg-purple-950/60 hover:bg-amber-950/60 text-purple-300 hover:text-amber-300 border-purple-700/50'
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50'
+                                }`}
+                              >
+                                {isUserVerified ? 'Require OTP' : '✓ Verify Direct'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-xs font-black text-emerald-400">

@@ -103,11 +103,11 @@ export const AuthModal: React.FC = () => {
     try {
       const res = await signup(name, email, password);
       if (res.success) {
-        setSuccessMsg('Account created successfully! Welcome to ApexStore.');
-        showToast(`Welcome ${name}! Account created.`);
+        setSuccessMsg('Account registered! Opening Admin OTP Verification Panel...');
+        showToast(`Account created! Verify Admin OTP to enter store.`);
         setTimeout(() => {
           handleClose();
-        }, 700);
+        }, 350);
       } else {
         setErrorMsg(res.error || 'Failed to create account.');
       }

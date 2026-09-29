@@ -21,6 +21,7 @@ import { PaymentModal } from './components/PaymentModal';
 import { PaymentTimerModal } from './components/PaymentTimerModal';
 import { ReceiptModal } from './components/ReceiptModal';
 import { AuthModal } from './components/AuthModal';
+import { AccountVerificationModal } from './components/AccountVerificationModal';
 import { AdminModal } from './components/AdminModal';
 import { AIAssistantModal } from './components/AIAssistantModal';
 import { FlyingCartParticles } from './components/FlyingCartParticles';
@@ -102,6 +103,7 @@ const StorefrontLayout: React.FC = () => {
 
       {featureToggles.receiptDownload && <ReceiptModal />}
       <AuthModal />
+      <AccountVerificationModal />
       <AdminModal />
       {featureToggles.aiAssistant && <AIAssistantModal />}
 

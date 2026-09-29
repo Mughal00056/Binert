@@ -71,8 +71,10 @@ export interface OrderDeliveryInfo {
   productLink?: string;
   downloadUrl?: string;
   fileName?: string;
+  downloadFileName?: string;
   licenseKey?: string;
   deliveryNote?: string;
+  deliveryDetails?: string;
   deliveredAt?: string;
 }
 
@@ -175,6 +177,13 @@ export interface Order {
   trackingNumber?: string;
   shippingAddress?: string;
   deliveryInfo?: OrderDeliveryInfo;
+  productName?: string;
+  productLink?: string;
+  downloadUrl?: string;
+  downloadFileName?: string;
+  deliveryDetails?: string;
+  licenseKey?: string;
+  deliveredAt?: string;
   timeline?: OrderTimelineItem[];
 }
 
@@ -207,6 +216,10 @@ export interface UserProfile {
   createdAt: string;
   lastLoginAt?: string;
   role?: 'user' | 'admin';
+  verified?: boolean;
+  verificationOtp?: string;
+  verificationOtpSentAt?: string;
+  verifiedAt?: string;
 }
 
 export interface LaunchConfig {

@@ -11,7 +11,8 @@ export const AdminModal: React.FC = () => {
     updateOrderStatus,
     deleteOrder,
     adminSendOtp,
-    adminUpdateTracking,
+    registeredUsers,
+    adminSendUserVerificationOtp,
     products,
     saveNewProduct,
     promoCodes,
@@ -21,9 +22,10 @@ export const AdminModal: React.FC = () => {
     showToast
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'promos' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'users' | 'products' | 'promos' | 'settings'>('orders');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedProofImg, setSelectedProofImg] = useState<string | null>(null);
+  const [userOtpInputs, setUserOtpInputs] = useState<Record<string, string>>({});
 
   // Quick PIN gate
   const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
@@ -113,8 +115,12 @@ export const AdminModal: React.FC = () => {
     });
   };
 
+  const unverifiedUsersCount = registeredUsers.filter(
+    (u) => u.role !== 'admin' && !u.verified
+  ).length;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
+    <div className="fixed inset-0 z-[250] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-[fadeIn_0.2s_ease-out]">
       <div className="bg-[#13131a] rounded-3xl overflow-hidden shadow-2xl shadow-purple-950/80 max-w-4xl w-full border-2 border-purple-600/50 relative max-h-[92vh] flex flex-col animate-[slideUpFade_0.3s_cubic-bezier(0.22,1,0.36,1)]">
         {/* Top Header */}
         <div className="p-4 sm:p-5 border-b border-purple-900/40 flex items-center justify-between bg-gradient-to-r from-purple-950 via-[#1a0f30] to-[#13131a] shrink-0">
@@ -207,6 +213,24 @@ export const AdminModal: React.FC = () => {
                 <span>Orders ({orders.length})</span>
                 {pendingCount > 0 && (
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('users')}
+                className={`py-3 px-4 font-black text-xs uppercase tracking-wider border-b-2 flex items-center gap-2 cursor-pointer transition whitespace-nowrap ${
+                  activeTab === 'users'
+                    ? 'border-purple-400 text-purple-300'
+                    : 'border-transparent text-purple-400/60 hover:text-purple-300'
+                }`}
+              >
+                <i className="fa-solid fa-user-shield" />
+                <span>Users &amp; OTP ({registeredUsers.length})</span>
+                {unverifiedUsersCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[9px] font-black animate-pulse">
+                    {unverifiedUsersCount}
+                  </span>
                 )}
               </button>
 
@@ -440,6 +464,91 @@ export const AdminModal: React.FC = () => {
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB 1B: USERS & ACCOUNT OTP VERIFICATION */}
+              {activeTab === 'users' && (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-2xl bg-purple-950/30 border border-purple-800/40 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+                        Signup Accounts &amp; OTP Verification
+                      </h4>
+                      <p className="text-[11px] text-purple-300/80 mt-0.5">
+                        New signup accounts are locked until you send them a 6-digit verification OTP.
+                      </p>
+                    </div>
+                    <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-black">
+                      {unverifiedUsersCount} Unverified
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {registeredUsers.map((u) => {
+                      const isUserVerified = Boolean(u.verified || u.role === 'admin');
+                      return (
+                        <div
+                          key={u.id || u.email}
+                          className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                            isUserVerified
+                              ? 'bg-[#0f1722] border-emerald-500/40'
+                              : 'bg-[#1b122c] border-amber-500/50'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs sm:text-sm font-black text-white">{u.name}</span>
+                              {isUserVerified ? (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase">
+                                  ✓ Verified
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black uppercase animate-pulse">
+                                  ⏳ Unverified (Waiting OTP)
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-mono text-purple-300 select-all mt-0.5">{u.email}</p>
+                            {u.verificationOtp && (
+                              <p className="text-[11px] font-mono text-amber-300 mt-1">
+                                Sent Account OTP: <strong className="text-white font-black">{u.verificationOtp}</strong>
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap shrink-0">
+                            <input
+                              type="text"
+                              maxLength={6}
+                              placeholder="6-digit or Auto"
+                              value={userOtpInputs[u.email] || ''}
+                              onChange={(e) =>
+                                setUserOtpInputs((prev) => ({
+                                  ...prev,
+                                  [u.email]: e.target.value.replace(/\D/g, '')
+                                }))
+                              }
+                              className="w-28 px-2.5 py-1.5 rounded-xl bg-[#0a0a0f] border border-amber-500/40 text-xs font-mono text-white placeholder-purple-400/50 outline-none focus:border-amber-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const custom = userOtpInputs[u.email];
+                                const code = adminSendUserVerificationOtp(u.email, custom);
+                                setUserOtpInputs((prev) => ({ ...prev, [u.email]: '' }));
+                                showToast(`Sent Account OTP ${code} to ${u.email}!`);
+                              }}
+                              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-black text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 shadow-md"
+                            >
+                              <i className="fa-solid fa-key" />
+                              <span>{u.verificationOtp ? 'Resend OTP' : 'Send Verification OTP'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

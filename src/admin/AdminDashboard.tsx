@@ -1155,6 +1155,173 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
     );
   };
 
+  const handleSendUserVerificationOtp = async (email: string, customOtp?: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) return;
+    const generatedOtp =
+      customOtp && customOtp.trim().length >= 4
+        ? customOtp.trim()
+        : Math.floor(100000 + Math.random() * 900000).toString();
+
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
+    const exists = currentUsers.some((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
+    const nowIso = new Date().toISOString();
+
+    const updatedUsers = exists
+      ? currentUsers.map((u) =>
+          (u.email || '').trim().toLowerCase() === cleanEmail
+            ? {
+                ...u,
+                verificationOtp: generatedOtp,
+                verificationOtpSentAt: nowIso,
+                verified: false
+              }
+            : u
+        )
+      : [
+          {
+            id: `u_${Date.now()}`,
+            name: cleanEmail.split('@')[0],
+            email: cleanEmail,
+            password: '123456',
+            role: 'user' as const,
+            verified: false,
+            verificationOtp: generatedOtp,
+            verificationOtpSentAt: nowIso,
+            createdAt: nowIso,
+            lastLoginAt: nowIso
+          },
+          ...currentUsers
+        ];
+
+    try {
+      const currRaw = localStorage.getItem('apex_current_user');
+      if (currRaw) {
+        const curr = JSON.parse(currRaw);
+        if ((curr?.email || '').trim().toLowerCase() === cleanEmail) {
+          localStorage.setItem(
+            'apex_current_user',
+            JSON.stringify({
+              ...curr,
+              verificationOtp: generatedOtp,
+              verificationOtpSentAt: nowIso,
+              verified: false
+            })
+          );
+        }
+      }
+    } catch {}
+
+    const otpNotif: NotificationItem = {
+      id: 'notif-uotp-' + Date.now(),
+      type: 'info',
+      icon: 'fa-user-shield',
+      title: `Account Verification OTP: ${generatedOtp}`,
+      desc: `Admin sent your 6-digit Account Verification OTP: ${generatedOtp}. Enter this code on the Verification Panel to unlock store access.`,
+      time: Date.now(),
+      active: true,
+      sender: 'Admin',
+      targetEmail: cleanEmail,
+      otp: generatedOtp
+    };
+
+    const updatedNotifs = [otpNotif, ...(state.notifications || [])];
+    setState((prev) => ({
+      ...prev,
+      users: updatedUsers,
+      notifications: updatedNotifs
+    }));
+
+    try {
+      localStorage.setItem('apex_registered_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('apex_notifications', JSON.stringify(updatedNotifs));
+      window.dispatchEvent(new Event('apex_users_updated'));
+      window.dispatchEvent(new Event('apex_notifications_updated'));
+    } catch {}
+
+    broadcastSync({
+      users: updatedUsers,
+      notifications: updatedNotifs
+    });
+
+    showToast(`Account Verification OTP ${generatedOtp} sent to ${cleanEmail}!`, 'success');
+
+    try {
+      setSyncStatus('saving');
+      await updateFirebasePartial({
+        users: updatedUsers,
+        notifications: updatedNotifs,
+        usersCleared: false
+      });
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('synced');
+    }
+  };
+
+  const handleToggleUserVerified = async (email: string, verified: boolean) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) return;
+    const nowIso = new Date().toISOString();
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
+    const exists = currentUsers.some((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
+
+    const updatedUsers = exists
+      ? currentUsers.map((u) =>
+          (u.email || '').trim().toLowerCase() === cleanEmail
+            ? {
+                ...u,
+                verified,
+                verifiedAt: verified ? nowIso : undefined
+              }
+            : u
+        )
+      : [
+          {
+            id: `u_${Date.now()}`,
+            name: cleanEmail.split('@')[0],
+            email: cleanEmail,
+            password: '123456',
+            role: 'user' as const,
+            verified,
+            verifiedAt: verified ? nowIso : undefined,
+            createdAt: nowIso,
+            lastLoginAt: nowIso
+          },
+          ...currentUsers
+        ];
+
+    try {
+      const currRaw = localStorage.getItem('apex_current_user');
+      if (currRaw) {
+        const curr = JSON.parse(currRaw);
+        if ((curr?.email || '').trim().toLowerCase() === cleanEmail) {
+          localStorage.setItem(
+            'apex_current_user',
+            JSON.stringify({
+              ...curr,
+              verified,
+              verifiedAt: verified ? nowIso : undefined
+            })
+          );
+        }
+      }
+    } catch {}
+
+    let deletedList: string[] = [];
+    try {
+      const raw = localStorage.getItem('apex_deleted_user_emails');
+      if (raw) deletedList = JSON.parse(raw);
+    } catch {}
+
+    await syncUsersEverywhere(
+      updatedUsers,
+      deletedList,
+      verified ? `User "${cleanEmail}" marked as VERIFIED!` : `User "${cleanEmail}" set to Unverified (OTP required)!`,
+      'success'
+    );
+  };
+
   const handleDeleteUser = async (emailOrId: string) => {
     const targetKey = emailOrId.trim().toLowerCase();
     const currentUsers = Array.isArray(state.users) ? state.users : [];
@@ -1209,6 +1376,173 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
       localStorage.removeItem('apex_current_user');
     } catch {}
     await syncUsersEverywhere([], deletedList, 'All users deleted & blocked from login!', 'info');
+  };
+
+  const handleSendUserOtp = async (email: string, customOtp?: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) return;
+    const generatedOtp =
+      customOtp && customOtp.trim().length >= 4
+        ? customOtp.trim()
+        : Math.floor(100000 + Math.random() * 900000).toString();
+    const nowIso = new Date().toISOString();
+
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
+    const exists = currentUsers.some((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
+    const updatedUsers = exists
+      ? currentUsers.map((u) =>
+          (u.email || '').trim().toLowerCase() === cleanEmail
+            ? {
+                ...u,
+                verificationOtp: generatedOtp,
+                verificationOtpSentAt: nowIso,
+                verified: false
+              }
+            : u
+        )
+      : [
+          {
+            id: `u_${Date.now()}`,
+            name: cleanEmail.split('@')[0],
+            email: cleanEmail,
+            password: '',
+            role: 'user' as const,
+            verified: false,
+            verificationOtp: generatedOtp,
+            verificationOtpSentAt: nowIso,
+            createdAt: nowIso
+          },
+          ...currentUsers
+        ];
+
+    const otpNotif: NotificationItem = {
+      id: 'notif-uotp-' + Date.now(),
+      type: 'info',
+      icon: 'fa-user-shield',
+      title: `Account Verification OTP: ${generatedOtp}`,
+      desc: `Admin sent your 6-digit Account Verification OTP: ${generatedOtp}. Enter this code on the Account Verification Panel to unlock store access.`,
+      time: Date.now(),
+      active: true,
+      targetEmail: cleanEmail,
+      otp: generatedOtp
+    };
+    const updatedNotifications = [otpNotif, ...(state.notifications || [])];
+
+    setState((prev) => ({
+      ...prev,
+      users: updatedUsers,
+      notifications: updatedNotifications,
+      usersCleared: false
+    }));
+
+    try {
+      localStorage.setItem('apex_registered_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('apex_notifications', JSON.stringify(updatedNotifications));
+      const currRaw = localStorage.getItem('apex_current_user');
+      if (currRaw) {
+        const curr = JSON.parse(currRaw);
+        if ((curr?.email || '').trim().toLowerCase() === cleanEmail) {
+          localStorage.setItem(
+            'apex_current_user',
+            JSON.stringify({
+              ...curr,
+              verificationOtp: generatedOtp,
+              verificationOtpSentAt: nowIso,
+              verified: false
+            })
+          );
+        }
+      }
+      window.dispatchEvent(new Event('apex_users_updated'));
+      window.dispatchEvent(new Event('apex_notifications_updated'));
+    } catch {}
+
+    broadcastSync({
+      users: updatedUsers,
+      notifications: updatedNotifications,
+      usersCleared: false
+    });
+
+    showToast(`Account Verification OTP (${generatedOtp}) sent to ${cleanEmail}!`, 'success');
+
+    try {
+      setSyncStatus('saving');
+      await updateFirebasePartial({
+        users: updatedUsers,
+        notifications: updatedNotifications,
+        usersCleared: false
+      });
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('synced');
+    }
+  };
+
+  const handleVerifyUserDirectly = async (email: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) return;
+    const nowIso = new Date().toISOString();
+
+    const currentUsers = Array.isArray(state.users) ? state.users : [];
+    const exists = currentUsers.some((u) => (u.email || '').trim().toLowerCase() === cleanEmail);
+    const updatedUsers = exists
+      ? currentUsers.map((u) =>
+          (u.email || '').trim().toLowerCase() === cleanEmail
+            ? { ...u, verified: true, verifiedAt: nowIso }
+            : u
+        )
+      : [
+          {
+            id: `u_${Date.now()}`,
+            name: cleanEmail.split('@')[0],
+            email: cleanEmail,
+            password: '',
+            role: 'user' as const,
+            verified: true,
+            verifiedAt: nowIso,
+            createdAt: nowIso
+          },
+          ...currentUsers
+        ];
+
+    setState((prev) => ({
+      ...prev,
+      users: updatedUsers,
+      usersCleared: false
+    }));
+
+    try {
+      localStorage.setItem('apex_registered_users', JSON.stringify(updatedUsers));
+      const currRaw = localStorage.getItem('apex_current_user');
+      if (currRaw) {
+        const curr = JSON.parse(currRaw);
+        if ((curr?.email || '').trim().toLowerCase() === cleanEmail) {
+          localStorage.setItem(
+            'apex_current_user',
+            JSON.stringify({ ...curr, verified: true, verifiedAt: nowIso })
+          );
+        }
+      }
+      window.dispatchEvent(new Event('apex_users_updated'));
+    } catch {}
+
+    broadcastSync({
+      users: updatedUsers,
+      usersCleared: false
+    });
+
+    showToast(`User "${cleanEmail}" is now Verified & unlocked!`, 'success');
+
+    try {
+      setSyncStatus('saving');
+      await updateFirebasePartial({
+        users: updatedUsers,
+        usersCleared: false
+      });
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('synced');
+    }
   };
 
   // Notifications Actions
@@ -1780,6 +2114,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToStoref
               onAddUser={handleAddUser}
               onDeleteUser={handleDeleteUser}
               onClearAllUsers={handleClearAllUsers}
+              onSendUserOtp={handleSendUserVerificationOtp}
+              onToggleUserVerified={handleToggleUserVerified}
             />
           )}
 

@@ -24,8 +24,8 @@ export const OrdersView: React.FC = () => {
   const [otpErrors, setOtpErrors] = useState<Record<number, string>>({});
   const [verifyingId, setVerifyingId] = useState<number | null>(null);
 
-  // Strict privacy: Only show orders when user is logged in with email & password, and ONLY their own non-deleted orders
   let deletedIdsSet = new Set<string>();
+  let localMyOrderIdsSet = new Set<string>();
   try {
     const rawDel = localStorage.getItem('apex_deleted_order_ids');
     if (rawDel) {
@@ -34,24 +34,26 @@ export const OrdersView: React.FC = () => {
         deletedIdsSet = new Set(parsed.map((id) => String(id).trim()));
       }
     }
+    const rawLocalMy = localStorage.getItem('apex_my_local_order_ids');
+    if (rawLocalMy) {
+      const parsedMy: string[] = JSON.parse(rawLocalMy);
+      if (Array.isArray(parsedMy)) {
+        localMyOrderIdsSet = new Set(parsedMy.map((id) => String(id).trim()));
+      }
+    }
   } catch {}
 
   const userOrders = orders.filter((o) => {
-    if (deletedIdsSet.has(String(o.id).trim())) {
-      return false;
-    }
-    if (!currentUser || !currentUser.email) {
-      return false;
-    }
-    const orderEmail = (o.email || '').trim().toLowerCase();
-    const myEmail = currentUser.email.trim().toLowerCase();
-    if (!orderEmail || orderEmail !== myEmail) {
+    const idStr = String(o.id).trim();
+    if (deletedIdsSet.has(idStr)) {
       return false;
     }
     if (searchOrderId.trim()) {
       const match =
         String(o.id).includes(searchOrderId.trim()) ||
-        (o.transactionId || '').toLowerCase().includes(searchOrderId.trim().toLowerCase());
+        (o.transactionId || '').toLowerCase().includes(searchOrderId.trim().toLowerCase()) ||
+        (o.customer || '').toLowerCase().includes(searchOrderId.trim().toLowerCase()) ||
+        (o.email || '').toLowerCase().includes(searchOrderId.trim().toLowerCase());
       if (!match) return false;
     }
     if (filterStatus !== 'all') {

@@ -26,9 +26,25 @@ export const SideMenu: React.FC = () => {
 
   if (!sideMenuOpen || featureToggles.sideMenu === false) return null;
 
-  const userOrders = currentUser
-    ? orders.filter((o) => o.email.toLowerCase() === currentUser.email.toLowerCase())
-    : [];
+  let localMyOrderIdsSet = new Set<string>();
+  try {
+    const rawLocalMy = localStorage.getItem('apex_my_local_order_ids');
+    if (rawLocalMy) {
+      const parsedMy: string[] = JSON.parse(rawLocalMy);
+      if (Array.isArray(parsedMy)) {
+        localMyOrderIdsSet = new Set(parsedMy.map((id) => String(id).trim()));
+      }
+    }
+  } catch {}
+
+  const userOrders = orders.filter((o) => {
+    const idStr = String(o.id).trim();
+    if (localMyOrderIdsSet.has(idStr)) return true;
+    if (currentUser && currentUser.email) {
+      return (o.email || '').trim().toLowerCase() === currentUser.email.trim().toLowerCase();
+    }
+    return false;
+  });
 
   return (
     <>
@@ -76,8 +92,19 @@ export const SideMenu: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-white truncate">{currentUser.name}</p>
                   <p className="text-[10px] text-purple-300/70 truncate">{currentUser.email}</p>
-                  <span className="inline-block mt-0.5 text-[9px] font-black text-emerald-400 uppercase tracking-widest">
-                    ● {currentUser.role === 'admin' ? 'Founder & Admin' : 'Verified Member'}
+                  <span
+                    className={`inline-block mt-0.5 text-[9px] font-black uppercase tracking-widest ${
+                      currentUser.role === 'admin' || currentUser.verified
+                        ? 'text-emerald-400'
+                        : 'text-amber-400'
+                    }`}
+                  >
+                    ●{' '}
+                    {currentUser.role === 'admin'
+                      ? 'Founder & Admin'
+                      : currentUser.verified
+                      ? 'Verified Member'
+                      : 'Unverified • Pending OTP'}
                   </span>
                 </div>
               </div>

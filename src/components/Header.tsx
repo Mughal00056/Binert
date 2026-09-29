@@ -46,9 +46,25 @@ export const Header: React.FC = () => {
     return () => clearTimeout(timer);
   }, [cartCount]);
 
-  const userOrders = currentUser
-    ? orders.filter((o) => o.email.toLowerCase() === currentUser.email.toLowerCase())
-    : [];
+  let localMyOrderIdsSet = new Set<string>();
+  try {
+    const rawLocalMy = localStorage.getItem('apex_my_local_order_ids');
+    if (rawLocalMy) {
+      const parsedMy: string[] = JSON.parse(rawLocalMy);
+      if (Array.isArray(parsedMy)) {
+        localMyOrderIdsSet = new Set(parsedMy.map((id) => String(id).trim()));
+      }
+    }
+  } catch {}
+
+  const userOrders = orders.filter((o) => {
+    const idStr = String(o.id).trim();
+    if (localMyOrderIdsSet.has(idStr)) return true;
+    if (currentUser && currentUser.email) {
+      return (o.email || '').trim().toLowerCase() === currentUser.email.trim().toLowerCase();
+    }
+    return false;
+  });
 
   return (
     <header className="bg-[#13131a]/95 backdrop-blur-md border-b border-purple-900/40 shadow-lg shadow-purple-950/20 sticky top-0 z-40">
@@ -149,8 +165,18 @@ export const Header: React.FC = () => {
                     <span className="text-xs font-black text-white max-w-[100px] truncate leading-tight">
                       {currentUser.name.split(' ')[0]}
                     </span>
-                    <span className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider leading-none">
-                      {currentUser.role === 'admin' ? 'Founder' : 'Verified'}
+                    <span
+                      className={`text-[9px] font-bold uppercase tracking-wider leading-none ${
+                        currentUser.role === 'admin' || currentUser.verified
+                          ? 'text-emerald-400'
+                          : 'text-amber-400'
+                      }`}
+                    >
+                      {currentUser.role === 'admin'
+                        ? 'Founder'
+                        : currentUser.verified
+                        ? 'Verified'
+                        : 'Unverified'}
                     </span>
                   </div>
                   <i className={`fa-solid fa-chevron-down text-[10px] text-purple-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
@@ -181,9 +207,25 @@ export const Header: React.FC = () => {
                       </div>
                     </div>
                     <div className="mt-2 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                      <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
-                        {currentUser.role === 'admin' ? 'Store Administrator' : 'VIP Member'}
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full animate-ping ${
+                          currentUser.role === 'admin' || currentUser.verified
+                            ? 'bg-emerald-400'
+                            : 'bg-amber-400'
+                        }`}
+                      />
+                      <span
+                        className={`text-[9px] font-bold uppercase tracking-wider ${
+                          currentUser.role === 'admin' || currentUser.verified
+                            ? 'text-emerald-400'
+                            : 'text-amber-400'
+                        }`}
+                      >
+                        {currentUser.role === 'admin'
+                          ? 'Store Administrator'
+                          : currentUser.verified
+                          ? 'Verified Member'
+                          : 'Unverified • Pending Admin OTP'}
                       </span>
                     </div>
                   </div>

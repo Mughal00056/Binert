@@ -24,7 +24,10 @@ export const PaymentTimerModal: React.FC = () => {
 
   if (!timerModalOpen) return null;
 
-  const order = orders.find((o) => o.id === activeTimerOrderId) || currentOrder;
+  const order =
+    orders.find((o) => String(o.id) === String(activeTimerOrderId)) ||
+    currentOrder ||
+    orders[0];
   if (!order) return null;
 
   const secondsLeft = order.approvalSecondsLeft ?? 0;

@@ -93,13 +93,31 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
   const deletedProductSet = new Set(deletedProductIds);
   const deletedCatSet = new Set(deletedCategoryIds);
 
-  const rawProducts = data.productsCleared
-    ? []
-    : normalizeArray(data.products, isInitialized ? [] : INITIAL_STORE_STATE.products);
+  const parsedProducts = normalizeArray(data.products, isInitialized ? [] : INITIAL_STORE_STATE.products);
+  const rawProducts = data.productsCleared && parsedProducts.length === 0 ? [] : parsedProducts;
   const products = rawProducts.filter((p) => p && !deletedProductSet.has(Number(p.id)));
 
-  const rawOrders = data.ordersCleared ? [] : normalizeOrders(data.orders);
-  const orders = rawOrders.filter((o) => o && !deletedOrderSet.has(String(o.id)));
+  const parsedOrders = normalizeOrders(data.orders);
+  const localOrders = normalizeOrders(getLocalList<Order>('apex_orders'));
+  const mergedOrderMap = new Map<string, Order>();
+  if (!data.ordersCleared || parsedOrders.length > 0) {
+    for (const lo of localOrders) {
+      if (lo && lo.id !== undefined && !deletedOrderSet.has(String(lo.id))) {
+        mergedOrderMap.set(String(lo.id), { ...lo, id: String(lo.id) });
+      }
+    }
+    for (const ro of parsedOrders) {
+      if (ro && ro.id !== undefined && !deletedOrderSet.has(String(ro.id))) {
+        const prev = mergedOrderMap.get(String(ro.id));
+        mergedOrderMap.set(String(ro.id), { ...(prev || {}), ...ro, id: String(ro.id) });
+      }
+    }
+  }
+  const orders = Array.from(mergedOrderMap.values()).sort((a, b) => {
+    const tA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : Number(a.createdAt || 0);
+    const tB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : Number(b.createdAt || 0);
+    return tB - tA;
+  });
 
   const rawCategories =
     data.categories !== undefined
@@ -109,19 +127,19 @@ export function normalizeStoreState(data: Record<string, any> | null | undefined
       : INITIAL_STORE_STATE.categories || [];
   const categories = rawCategories.filter((c) => c && !deletedCatSet.has(String(c.id)));
 
-  const rawUsers = data.usersCleared
-    ? []
-    : data.users !== undefined
-    ? normalizeArray(data.users, [])
-    : (() => {
-        if (typeof window !== 'undefined') {
-          try {
-            const localUsers = localStorage.getItem('apex_registered_users');
-            if (localUsers) return JSON.parse(localUsers);
-          } catch {}
-        }
-        return isInitialized ? [] : INITIAL_STORE_STATE.users || [];
-      })();
+  const parsedUsers =
+    data.users !== undefined
+      ? normalizeArray(data.users, [])
+      : (() => {
+          if (typeof window !== 'undefined') {
+            try {
+              const localUsers = localStorage.getItem('apex_registered_users');
+              if (localUsers) return JSON.parse(localUsers);
+            } catch {}
+          }
+          return isInitialized ? [] : INITIAL_STORE_STATE.users || [];
+        })();
+  const rawUsers = data.usersCleared && parsedUsers.length === 0 ? [] : parsedUsers;
   const users = rawUsers.filter(
     (u) => u && u.email && !deletedUserSet.has(String(u.email).trim().toLowerCase())
   );
@@ -198,7 +216,27 @@ function saveLocalStoreCache(state: Partial<StoreState>) {
 
     const existingRaw = localStorage.getItem(LOCAL_CACHE_KEY);
     const existing = existingRaw ? JSON.parse(existingRaw) : INITIAL_STORE_STATE;
-    const merged = { ...existing, ...state, updatedAt: Date.now() };
+    const localOrdersFallback = getLocalList<Order>('apex_orders');
+    const merged: Record<string, any> = {
+      ...existing,
+      orders:
+        state.orders !== undefined
+          ? state.orders
+          : localOrdersFallback.length > 0
+          ? localOrdersFallback
+          : existing.orders,
+      ...state,
+      updatedAt: Date.now()
+    };
+    if (Array.isArray(merged.orders) && merged.orders.length > 0 && state.ordersCleared === undefined) {
+      merged.ordersCleared = false;
+    }
+    if (Array.isArray(state.users) && state.users.length > 0 && state.usersCleared === undefined) {
+      merged.usersCleared = false;
+    }
+    if (Array.isArray(state.products) && state.products.length > 0 && state.productsCleared === undefined) {
+      merged.productsCleared = false;
+    }
     localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(merged));
 
     if (state.orders !== undefined) {
